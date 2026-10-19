@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>aromaopt Магазин</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+/* Layout: Telegram mini-app — баннер с «Каналом», поиск, вкладки категорий, сетка 3 в ряд, плавающее нижнее меню */
+:root{
+  --bg:#efeff4; --card:#ffffff; --fg:#111114; --muted:#7a7a85; --line:#dcdce3;
+  --btn:#0d0d10; --btn-fg:#ffffff; --accent:#2f80ed; --accent-soft:#d9e6f8;
+  --warn:#b4471d; --warn-soft:#fbe9df; --ok:#2e7d4f;
+  --f-ui:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --f-display:"Russo One","Arial Black",var(--f-ui);
+  --r:16px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f0f12; --card:#1b1b20; --fg:#f2f2f5; --muted:#9a9aa6; --line:#2c2c34;
+  --btn:#f2f2f5; --btn-fg:#0f0f12; --accent:#5aa0ff; --accent-soft:#1d2a3d;
+  --warn:#ff9a6b; --warn-soft:#3a2219; --ok:#5fcf8d; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f0f12; --card:#1b1b20; --fg:#f2f2f5; --muted:#9a9aa6; --line:#2c2c34;
+  --btn:#f2f2f5; --btn-fg:#0f0f12; --accent:#5aa0ff; --accent-soft:#1d2a3d;
+  --warn:#ff9a6b; --warn-soft:#3a2219; --ok:#5fcf8d; color-scheme:dark}
+html,body{background:var(--bg);color:var(--fg)}
+body{font-family:var(--f-ui);font-size:15px;line-height:1.35;
+  padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));
+  padding-block:10px 110px}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.top{display:flex;gap:8px;align-items:stretch}
+.banner{flex:1;min-width:0;border-radius:12px;padding:10px 12px;display:flex;align-items:center;
+  background:
+   radial-gradient(circle at 8% 40%,#ff2fa0 0 18%,transparent 34%),
+   radial-gradient(circle at 30% 80%,#ffcc00 0 14%,transparent 30%),
+   radial-gradient(circle at 55% 20%,#00c2ff 0 16%,transparent 32%),
+   radial-gradient(circle at 78% 70%,#7a3cff 0 15%,transparent 32%),
+   radial-gradient(circle at 96% 30%,#ff6a00 0 14%,transparent 30%),#f4f4f6;}
+.banner b{font-family:var(--f-display);font-weight:400;font-size:clamp(13px,3.6vw,18px);letter-spacing:.02em;color:#141414;
+  text-shadow:0 0 6px #fff,0 0 2px #fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chan{background:var(--btn);color:var(--btn-fg);border:0;border-radius:12px;padding:0 14px;display:flex;align-items:center;gap:6px;font-weight:600;text-decoration:none;white-space:nowrap}
+.chan svg{width:20px;height:20px}
+.search{display:flex;gap:8px;align-items:center;margin-top:10px}
+.search label{flex:1;display:flex;align-items:center;gap:8px;border:2px solid var(--fg);border-radius:12px;padding:8px 12px;background:var(--card)}
+.search input{border:0;background:transparent;flex:1;min-width:0;font-size:16px;color:var(--fg);outline:none}
+.iconbtn{background:none;border:0;padding:8px;border-radius:10px}
+.iconbtn[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
+.tabs{display:flex;gap:18px;overflow-x:auto;scrollbar-width:none;margin:12px -10px 0;padding:0 10px}
+.tabs::-webkit-scrollbar{display:none}
+.tab{background:none;border:0;padding:6px 2px 10px;font-weight:700;font-size:17px;white-space:nowrap;border-bottom:3px solid transparent;color:var(--fg)}
+.tab[aria-selected="true"]{border-color:var(--fg)}
+.meta{color:var(--muted);font-size:13px;margin:6px 2px 10px;display:flex;justify-content:space-between;gap:8px}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 8px}
+@media (max-width:340px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.item{display:flex;flex-direction:column;gap:4px;min-width:0}
+.ph{aspect-ratio:1/1;max-width:100%;border-radius:14px;background:var(--card);display:grid;place-items:center;overflow:hidden;position:relative}
+.ph img{width:100%;height:100%;object-fit:cover}
+.ph svg{width:46%;height:auto}
+.ph .vol{position:absolute;left:6px;bottom:6px;font-size:11px;background:var(--bg);color:var(--muted);padding:2px 6px;border-radius:8px}
+.price{font-weight:800;font-size:18px;font-variant-numeric:tabular-nums}
+.art{font-size:12px;color:var(--muted);font-weight:600}
+.name{font-size:14px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.5em;word-break:break-word}
+.add{margin-top:auto;background:var(--btn);color:var(--btn-fg);border:0;border-radius:12px;padding:9px 4px;font-weight:600;display:flex;justify-content:center;align-items:center;gap:6px;font-size:14px}
+.add svg{width:17px;height:17px}
+.add.in{background:var(--accent-soft);color:var(--accent)}
+.add:disabled{background:var(--line);color:var(--muted);cursor:default}
+.stepper{margin-top:auto;display:flex;align-items:center;justify-content:space-between;background:var(--accent-soft);border-radius:12px}
+.stepper button{background:none;border:0;padding:8px 12px;font-size:18px;font-weight:700;color:var(--accent)}
+.stepper span{font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums}
+.more{display:block;margin:16px auto 0;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 18px;font-weight:600}
+.empty{text-align:center;color:var(--muted);padding:40px 10px}
+h1{font-size:28px;margin:6px 2px 14px;text-wrap:balance}
+.list{background:var(--card);border-radius:var(--r);overflow:hidden}
+.row{display:flex;gap:10px;align-items:center;padding:12px;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.row .mini{width:52px;height:52px;flex:none;border-radius:10px;background:var(--bg);display:grid;place-items:center}
+.row .mini svg{width:55%}
+.row .txt{flex:1;min-width:0}
+.row .txt div:first-child{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .txt div+div{color:var(--muted);font-size:13px}
+.note{border-radius:var(--r);padding:12px 14px;margin:12px 0;font-size:14px}
+.note.warn{background:var(--warn-soft);color:var(--warn)}
+.note.ok{background:var(--accent-soft);color:var(--accent)}
+.sum{background:var(--card);border-radius:var(--r);padding:12px 14px;margin-top:12px;display:grid;gap:6px;font-variant-numeric:tabular-nums}
+.sum div{display:flex;justify-content:space-between;gap:8px}
+.sum .total{font-weight:800;font-size:18px;border-top:1px solid var(--line);padding-top:8px}
+.form{display:grid;gap:10px;margin-top:14px}
+.form label{display:grid;gap:4px;font-size:13px;color:var(--muted)}
+.form input,.form textarea{font:inherit;font-size:16px;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.big{width:100%;background:var(--btn);color:var(--btn-fg);border:0;border-radius:14px;padding:14px;font-weight:700;font-size:16px;margin-top:6px}
+.prof{display:flex;gap:12px;align-items:center;margin:6px 2px 14px}
+.ava{width:58px;height:58px;border-radius:50%;flex:none;display:grid;place-items:center;font-weight:800;font-size:22px;color:#fff;background:linear-gradient(135deg,#ff2fa0,#7a3cff)}
+.prof h2{margin:0;font-size:22px}
+.prof p{margin:2px 0 0;color:var(--muted)}
+.menu .row{font-weight:500}
+.menu .ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;color:#fff;flex:none}
+.menu .ic svg{width:20px;height:20px}
+.chev{color:var(--muted)}
+.info p{margin:0 0 10px;max-width:65ch}
+.info h3{margin:16px 0 8px;font-size:17px}
+.foot{text-align:center;color:var(--muted);font-size:13px;margin-top:18px}
+nav.bar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom,0px));
+  display:flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:40px;padding:6px;box-shadow:0 6px 24px rgb(0 0 0 / .12);z-index:5}
+nav.bar button{background:none;border:0;width:62px;height:46px;border-radius:30px;display:grid;place-items:center;position:relative;color:var(--fg)}
+nav.bar button[aria-current="page"]{background:var(--accent-soft)}
+nav.bar svg{width:26px;height:26px}
+.badge{position:absolute;top:4px;right:10px;min-width:18px;height:18px;border-radius:9px;background:var(--warn);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center;padding:0 4px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(80px + env(safe-area-inset-bottom,0px));background:var(--btn);color:var(--btn-fg);padding:10px 16px;border-radius:12px;font-size:14px;z-index:6}
+.sheet{position:fixed;inset:0;background:rgb(0 0 0 / .4);display:flex;align-items:flex-end;z-index:7}
+.sheet>div{background:var(--bg);width:100%;border-radius:20px 20px 0 0;padding:18px max(16px,env(safe-area-inset-left,0px)) calc(18px + env(safe-area-inset-bottom,0px))}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 14px}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:20px;padding:8px 14px}
+.chip[aria-pressed="true"]{background:var(--btn);color:var(--btn-fg);border-color:var(--btn)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+<style>*,*::before,*::after{box-sizing:border-box}body{margin:0}img{max-width:100%}[hidden]{display:none!important}:root{padding-top:env(safe-area-inset-top,0px)}</style>
+</head>
+<body>
+
+<div id="app"></div>
+<nav class="bar" aria-label="Меню">
+  <button data-go="home" aria-label="Главная"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 2 11.5h3V21h5.5v-6h3v6H19v-9.5h3z"/></svg></button>
+  <button data-go="cart" aria-label="Корзина"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 3h3l2.6 11.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 1.9-1.4L22 7H7.2"/><circle cx="10" cy="20" r="1.8"/><circle cx="18" cy="20" r="1.8"/></svg><span class="badge" id="badge" hidden>0</span></button>
+  <button data-go="info" aria-label="Информация"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M12.4 7.2a1.2 1.2 0 1 1-2.4 0 1.2 1.2 0 0 1 2.4 0zM10 10.5h3.2l-1.3 6.3h1.3" stroke="var(--card)" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></button>
+  <button data-go="profile" aria-label="Профиль"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="7.5" r="4.5"/><path d="M3 21c.6-4.6 4.4-7.5 9-7.5s8.4 2.9 9 7.5z"/></svg></button>
+</nav>
+
+<script>
+/* ===== НАСТРОЙКИ МАГАЗИНА ===== */
+const CONFIG = {
+  API_URL: "https://script.google.com/macros/s/AKfycbysDIVdkJbYzcfpMO5a8AwE7MOqRdKMN803f0lgjVwKPvRE-rcHGzESyYckJ2-pvYXnhg/exec",                       // адрес Google Apps Script (каталог + приём заказов). Пусто = демо-данные
+  CHANNEL_URL: "https://t.me/opt_opt_opt_parfume",
+  SHOP_TITLE: "Духи парфюмерия косметика ОПТом",
+  SHOP_HANDLE: "@opt_opt_opt_parfume",
+  MIN_WHOLESALE: 120,                // опт от суммы корзины, $
+  SURCHARGE_TESTER: 1.8,             // наценка ниже опта на тестеры 25/30/35/40 мл, $ за шт.
+  SURCHARGE_OTHER: 5,                // наценка ниже опта на остальное, $ за шт.
+  PAGE: 60
+};
+/* ===== ДАННЫЕ (демо: часть каталога). Формат: [арт, категория, название, объём, цена $, в наличии 1/0, фото] ===== */
+const DEMO = /*__DATA__*/[];
+
+const tg = window.Telegram && window.Telegram.WebApp;
+if (tg) { try { tg.ready(); tg.expand(); } catch(e){} }
+const store = {
+  get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},
+  set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+};
+let ITEMS = [], CATS = [];
+const S = { view:"home", cat:"Главная", q:"", inStock:false, sort:"", shown:CONFIG.PAGE,
+  cart: store.get("cart",{}), orders: store.get("orders",[]) };
+
+function norm(rows){
+  return rows.map(r=>({id:r[0],cat:r[1],name:r[2],vol:r[3]||"",price:+r[4],stock:!!r[5],img:r[6]||""}))
+    .filter(x=>x.name && x.price>0);
+}
+async function load(){
+  if (CONFIG.API_URL){
+    try{
+      const res = await fetch(CONFIG.API_URL+"?action=catalog");
+      const j = await res.json();
+      if(!j.ok) throw new Error("bad");
+      ITEMS = norm(j.items); store.set("catalog",j.items);
+    }catch(e){ ITEMS = norm(store.get("catalog",DEMO)); toast(ITEMS.length?"Нет связи, показан сохранённый каталог":"Не удалось загрузить каталог. Проверьте интернет"); }
+  } else ITEMS = norm(DEMO);
+  CATS = ["Главная", ...new Set(ITEMS.map(x=>x.cat))];
+  render();
+}
+const $ = s=>document.querySelector(s);
+const esc = s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const money = n=>(Math.round(n*100)/100).toLocaleString("ru-RU",{maximumFractionDigits:2})+" $";
+const isTester = it=>/тестер/i.test(it.cat) || /\b(25|30|35|40)\s*(мл|ml)/i.test(it.vol+" "+it.name);
+const TINT = {"Селектив / наборы":"#c9a227","Селектив и ниша":"#8e5bd8","Арабская парфюмерия":"#b8732e","Оригинальный парфюм AD":"#2f80ed","Тестеры 35 мл":"#d6457f","Тестеры 25 мл":"#e0637a","Тестер 100 мл Турция":"#2aa198"};
+function bottle(it){
+  const c = TINT[it.cat] || "#888";
+  return `<svg viewBox="0 0 40 56" aria-hidden="true"><rect x="15" y="2" width="10" height="9" rx="2" fill="var(--fg)" opacity=".85"/><rect x="17" y="10" width="6" height="5" fill="var(--fg)" opacity=".5"/><rect x="5" y="15" width="30" height="39" rx="7" fill="${c}" opacity=".9"/><rect x="10" y="27" width="20" height="13" rx="2" fill="#fff" opacity=".85"/></svg>`;
+}
+function thumb(it){ return it.img ? `<img src="${esc(it.img)}" alt="" loading="lazy">` : bottle(it); }
+
+function filtered(){
+  const q = S.q.trim().toLowerCase();
+  let a = ITEMS.filter(x=>(S.cat==="Главная"||x.cat===S.cat) && (!S.inStock||x.stock) && (!q||x.name.toLowerCase().includes(q)||String(x.id)===q));
+  if (S.sort==="asc") a=[...a].sort((x,y)=>x.price-y.price);
+  if (S.sort==="desc") a=[...a].sort((x,y)=>y.price-x.price);
+  return a;
+}
+function addBtn(it){
+  if (!it.stock) return `<button class="add" disabled>Нет в наличии</button>`;
+  const n = S.cart[it.id]||0;
+  if (n) return `<div class="stepper"><button data-dec="${it.id}" aria-label="Меньше">−</button><span>${n}</span><button data-inc="${it.id}" aria-label="Больше">+</button></div>`;
+  return `<button class="add" data-inc="${it.id}"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 3h3l2.6 11.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 1.9-1.4L22 7H7.2"/><circle cx="10" cy="20" r="1.8"/><circle cx="18" cy="20" r="1.8"/></svg>Добавить</button>`;
+}
+function viewHome(){
+  const a = filtered(), part = a.slice(0,S.shown);
+  return `
+  <div class="top"><div class="banner"><b>${esc(CONFIG.SHOP_TITLE)}</b></div>
+    <a class="chan" href="${esc(CONFIG.CHANNEL_URL)}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.5 3.5 2.8 10.7c-1.2.5-1.2 1.2 0 1.6l4.8 1.5 1.8 5.6c.2.6.4.8.9.8.4 0 .6-.2.9-.5l2.3-2.2 4.8 3.5c.9.5 1.5.2 1.7-.8l3.1-14.6c.3-1.3-.5-1.9-1.6-1.4zM9.4 13.6l9-5.7-7 6.6-.3 3z"/></svg>Канал</a></div>
+  <div class="search"><label><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>
+    <input id="q" type="search" placeholder="Поиск" value="${esc(S.q)}" aria-label="Поиск"></label>
+    <button class="iconbtn" id="filt" aria-label="Фильтр" aria-pressed="${S.inStock||!!S.sort}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M6 12h12M10 18h4"/></svg></button></div>
+  <div class="tabs" role="tablist">${CATS.map(c=>`<button class="tab" role="tab" data-cat="${esc(c)}" aria-selected="${c===S.cat}">${esc(c)}</button>`).join("")}</div>
+  <div class="meta"><span>Товаров: ${a.length}</span><span>Опт от ${CONFIG.MIN_WHOLESALE} $</span></div>
+  ${a.length?`<div class="grid">${part.map(it=>`
+    <div class="item"><div class="ph">${thumb(it)}${it.vol?`<span class="vol">${esc(it.vol)}</span>`:""}</div>
+      <div class="price">${money(it.price)}</div><div class="art">арт. ${it.id}</div>
+      <div class="name">${esc(it.name)}</div>${addBtn(it)}</div>`).join("")}</div>
+    ${a.length>S.shown?`<button class="more" id="more">Показать ещё ${Math.min(CONFIG.PAGE,a.length-S.shown)}</button>`:""}`
+   :`<div class="empty">Ничего не нашлось. Попробуйте другое название или уберите фильтр.</div>`}
+  <div class="foot">${CONFIG.API_URL?"":"Демо-режим: показана часть каталога"}</div>`;
+}
+function calc(){
+  const lines = Object.entries(S.cart).map(([id,n])=>({it:ITEMS.find(x=>String(x.id)===id),n})).filter(l=>l.it);
+  const base = lines.reduce((s,l)=>s+l.it.price*l.n,0);
+  const opt = base>=CONFIG.MIN_WHOLESALE;
+  const extra = opt?0:lines.reduce((s,l)=>s+(isTester(l.it)?CONFIG.SURCHARGE_TESTER:CONFIG.SURCHARGE_OTHER)*l.n,0);
+  const qty = lines.reduce((s,l)=>s+l.n,0);
+  return {lines,base,opt,extra,total:base+extra,qty};
+}
+function viewCart(){
+  const c = calc();
+  if (!c.lines.length) return `<h1>Корзина</h1><div class="empty">Корзина пуста<br><br><button class="big" style="width:auto;padding:12px 22px" data-go="home">Вернуться в каталог</button></div>`;
+  return `<h1>Корзина</h1>
+  <div class="list">${c.lines.map(l=>`<div class="row"><div class="mini">${bottle(l.it)}</div>
+    <div class="txt"><div>${esc(l.it.name)}</div><div>арт. ${l.it.id} · ${money(l.it.price)}${c.opt?"":` + ${money(isTester(l.it)?CONFIG.SURCHARGE_TESTER:CONFIG.SURCHARGE_OTHER)}`}</div></div>
+    <div class="stepper" style="margin:0"><button data-dec="${l.it.id}" aria-label="Меньше">−</button><span>${l.n}</span><button data-inc="${l.it.id}" aria-label="Больше">+</button></div></div>`).join("")}</div>
+  ${c.opt?`<div class="note ok">Сумма от ${CONFIG.MIN_WHOLESALE} $ — действуют оптовые цены.</div>`
+   :`<div class="note warn">До оптовых цен не хватает ${money(CONFIG.MIN_WHOLESALE-c.base)}. Сейчас считается с наценкой: тестеры 25/30/35/40 мл +${CONFIG.SURCHARGE_TESTER} $, остальное +${CONFIG.SURCHARGE_OTHER} $ за штуку. Доберите корзину или оформите по этой цене.</div>`}
+  <div class="sum"><div><span>Товаров</span><span>${c.qty} шт.</span></div><div><span>По оптовым ценам</span><span>${money(c.base)}</span></div>
+    ${c.extra?`<div><span>Наценка ниже опта</span><span>+ ${money(c.extra)}</span></div>`:""}
+    <div class="total"><span>Итого</span><span>${money(c.total)}</span></div></div>
+  <form class="form" id="order">
+    <label for="f-name">Имя<input id="f-name" required value="${esc(tgUser().name)}"></label>
+    <label for="f-phone">Телефон или Telegram<input id="f-phone" required placeholder="+7… или @ник" value="${esc(tgUser().user?"@"+tgUser().user:"")}"></label>
+    <label for="f-city">Город и транспортная компания<input id="f-city" placeholder="Например, Иркутск, СДЭК"></label>
+    <label for="f-note">Комментарий<textarea id="f-note" rows="2"></textarea></label>
+    <button class="big" type="submit">Оформить заказ на ${money(c.total)}</button>
+  </form>
+  <p class="foot">Оплата в $ или в рублях по курсу, который мы назовём перед сборкой.</p>`;
+}
+function viewInfo(){
+  return `<h1>Информация</h1><div class="info">
+  <div class="list" style="padding:14px 16px">
+  <h3 style="margin-top:0">Как мы работаем</h3>
+  <p>Мы оптовый склад, а не магазин. Работаем по будням, суббота и воскресенье — выходные.</p>
+  <p>Вы подтверждаете все позиции → мы собираем заказ и готовим накладную → после этого договариваемся о времени отгрузки или отправке транспортной компанией.</p>
+  <h3>Цены и оплата</h3>
+  <p>Цены в долларах. Оптовые цены действуют от ${CONFIG.MIN_WHOLESALE} $ в корзине. Можно оплатить в $ или в рублях по курсу, который мы назовём перед сборкой.</p>
+  <h3>Условия</h3>
+  <p>Весь товар перед отправкой проверяется. Возврата и обмена нет. После передачи товара в ТК ответственность за сохранность лежит на получателе.</p>
+  <p>Претензии по внешнему виду, флакону, распылителю, стойкости и совпадению ароматов после получения не принимаются. Покупая по оптовой цене, вы соглашаетесь с этими условиями.</p>
+  </div></div>`;
+}
+function tgUser(){
+  const u = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+  return u?{name:[u.first_name,u.last_name].filter(Boolean).join(" "),user:u.username||"",id:u.id}:{name:"",user:"",id:""};
+}
+function viewProfile(){
+  const ic=(bg,p)=>`<span class="ic" style="background:${bg}"><svg viewBox="0 0 24 24" fill="#fff">${p}</svg></span>`;
+  return `<div class="prof"><div class="ava">${esc((tgUser().name||"П")[0])}</div><div><h2>${esc(tgUser().name||"Проверенный поставщик")}</h2><p>${esc(CONFIG.SHOP_HANDLE)}</p></div></div>
+  <div class="list menu">
+    <button class="row" style="width:100%;background:none;border:0;text-align:left" data-go="home">${ic("#2f80ed",'<path d="M12 2 3 6.5v11L12 22l9-4.5v-11zM12 4.3l6.4 3.2L12 10.7 5.6 7.5z"/>')}<span class="txt">Все товары</span><span class="chev">›</span></button>
+    <button class="row" style="width:100%;background:none;border:0;text-align:left" data-go="cart">${ic("#f08a24",'<path d="M5 3h14v18H5zM8 8h8v2H8zm0 4h5v2H8z"/>')}<span class="txt">Корзина</span><span class="chev">›</span></button>
+    <a class="row" style="color:inherit;text-decoration:none" href="${esc(CONFIG.CHANNEL_URL)}" target="_blank" rel="noopener">${ic("#2a8bd8",'<path d="M21.5 3.5 2.8 10.7c-1.2.5-1.2 1.2 0 1.6l4.8 1.5 1.8 5.6c.2.6.4.8.9.8l3.2-2.7 4.8 3.5c.9.5 1.5.2 1.7-.8l3.1-14.6c.3-1.3-.5-1.9-1.6-1.4z"/>')}<span class="txt">Наш канал</span><span class="chev">›</span></a>
+  </div>
+  <h1 style="font-size:22px;margin-top:22px">Мои заказы</h1>
+  ${S.orders.length?`<div class="list">${S.orders.slice().reverse().map(o=>`<div class="row"><div class="txt"><div>Заказ от ${esc(o.date)}</div><div>${o.qty} шт. · ${money(o.total)} · ${esc(o.status)}</div></div></div>`).join("")}</div>`
+   :`<div class="list"><div class="empty" style="padding:24px">Вы ещё не сделали ни одного заказа</div></div>`}`;
+}
+function render(){
+  const v = {home:viewHome,cart:viewCart,info:viewInfo,profile:viewProfile}[S.view];
+  $("#app").innerHTML = v();
+  document.querySelectorAll("nav.bar button").forEach(b=>{ if(b.dataset.go===S.view) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current"); });
+  const q = calc().qty, bd=$("#badge"); bd.textContent=q; bd.hidden=!q;
+  const qi=$("#q"); if(qi){ qi.addEventListener("input",e=>{S.q=e.target.value;S.shown=CONFIG.PAGE;const p=e.target.selectionStart;render();const n=$("#q");n.focus();n.setSelectionRange(p,p);}); }
+  const of=$("#order"); if(of) of.addEventListener("submit",submitOrder);
+}
+let tt; function toast(m){ clearTimeout(tt); let t=$(".toast"); if(!t){t=document.createElement("div");t.className="toast";document.body.appendChild(t);} t.textContent=m; t.hidden=false; tt=setTimeout(()=>t.hidden=true,2200); }
+function haptic(){ try{tg&&tg.HapticFeedback.impactOccurred("light")}catch(e){} }
+function setCart(id,d){ const n=(S.cart[id]||0)+d; if(n>0) S.cart[id]=n; else delete S.cart[id]; store.set("cart",S.cart); haptic(); render(); }
+function openFilter(){
+  const sh=document.createElement("div"); sh.className="sheet";
+  const draw=()=>{ sh.innerHTML=`<div role="dialog" aria-label="Фильтр"><h2 style="margin:0 0 6px">Фильтр</h2>
+    <div class="chips"><button class="chip" data-f="stock" aria-pressed="${S.inStock}">Только в наличии</button></div>
+    <div style="color:var(--muted);font-size:13px">Сортировка</div>
+    <div class="chips"><button class="chip" data-s="" aria-pressed="${!S.sort}">Как в прайсе</button><button class="chip" data-s="asc" aria-pressed="${S.sort==="asc"}">Сначала дешевле</button><button class="chip" data-s="desc" aria-pressed="${S.sort==="desc"}">Сначала дороже</button></div>
+    <button class="big" data-close>Показать</button></div>`; };
+  draw(); document.body.appendChild(sh);
+  sh.addEventListener("click",e=>{ const t=e.target.closest("button");
+    if(e.target===sh||t?.dataset.close!==undefined&&t){ sh.remove(); S.shown=CONFIG.PAGE; render(); return; }
+    if(t?.dataset.f){S.inStock=!S.inStock;draw();} if(t&&t.dataset.s!==undefined){S.sort=t.dataset.s;draw();} });
+}
+async function submitOrder(e){
+  e.preventDefault();
+  const c=calc(), btn=e.target.querySelector("button[type=submit]");
+  const order={ date:new Date().toLocaleString("ru-RU"), customer:{name:$("#f-name").value.trim(),contact:$("#f-phone").value.trim(),city:$("#f-city").value.trim(),note:$("#f-note").value.trim(),tg:tgUser()},
+    items:c.lines.map(l=>({id:l.it.id,name:l.it.name,cat:l.it.cat,price:l.it.price,qty:l.n})), base:c.base, extra:c.extra, total:c.total, qty:c.qty, opt:c.opt };
+  btn.disabled=true; btn.textContent="Отправляем…";
+  if(!CONFIG.API_URL){ btn.disabled=false; btn.textContent="Оформить заказ на "+money(c.total); toast("Демо-режим: заказ не отправлен, подключим бота следующим шагом"); return; }
+  try{
+    const r=await fetch(CONFIG.API_URL,{method:"POST",body:JSON.stringify({action:"order",order,initData:tg?tg.initData:""})});
+    const j=await r.json(); if(!j.ok) throw new Error(j.error||"Ошибка");
+    S.orders.push({date:order.date,qty:c.qty,total:c.total,status:"принят, ждёт подтверждения"}); store.set("orders",S.orders);
+    S.cart={}; store.set("cart",S.cart); S.view="profile"; render(); toast("Заказ отправлен. Мы свяжемся с вами в Telegram");
+  }catch(err){ btn.disabled=false; btn.textContent="Оформить заказ на "+money(c.total); toast("Заказ не ушёл: проверьте интернет и нажмите ещё раз"); }
+}
+document.addEventListener("click",e=>{
+  const t=e.target.closest("[data-go],[data-cat],[data-inc],[data-dec],#more,#filt"); if(!t) return;
+  if(t.dataset.go){ S.view=t.dataset.go; render(); window.scrollTo(0,0); }
+  else if(t.dataset.cat){ S.cat=t.dataset.cat; S.shown=CONFIG.PAGE; render(); }
+  else if(t.dataset.inc){ setCart(t.dataset.inc,1); }
+  else if(t.dataset.dec){ setCart(t.dataset.dec,-1); }
+  else if(t.id==="more"){ S.shown+=CONFIG.PAGE; render(); }
+  else if(t.id==="filt"){ openFilter(); }
+});
+$("#app").innerHTML='<div class="empty">Загружаем каталог…</div>';
+load();
+</script>
+
+</body>
+</html>
