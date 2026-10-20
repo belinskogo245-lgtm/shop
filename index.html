@@ -171,7 +171,7 @@ const $ = s=>document.querySelector(s);
 const esc = s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const money = n=>(Math.round(n*100)/100).toLocaleString("ru-RU",{maximumFractionDigits:2})+" $";
 const isTester = it=>/тестер/i.test(it.cat) || /\b(25|30|35|40)\s*(мл|ml)/i.test(it.vol+" "+it.name);
-const TINT = {"Селектив / наборы":"#c9a227","Селектив и ниша":"#8e5bd8","Арабская парфюмерия":"#b8732e","Оригинальный парфюм AD":"#2f80ed","Тестеры 35 мл":"#d6457f","Тестеры 25 мл":"#e0637a","Тестер 100 мл Турция":"#2aa198","Тестеры 22 мл":"#e8833a"};
+const TINT = {"Селектив / наборы":"#c9a227","Селектив и ниша":"#8e5bd8","Арабская парфюмерия":"#b8732e","Оригинальный парфюм AD":"#2f80ed","Тестеры 35 мл":"#d6457f","Тестеры 25 мл":"#e0637a","Тестер 100 мл Турция":"#2aa198","Тестеры 22 мл":"#e8833a","Селектив Премиум":"#1f9d55"};
 function bottle(it){
   const c = TINT[it.cat] || "#888";
   return `<svg viewBox="0 0 40 56" aria-hidden="true"><rect x="15" y="2" width="10" height="9" rx="2" fill="var(--fg)" opacity=".85"/><rect x="17" y="10" width="6" height="5" fill="var(--fg)" opacity=".5"/><rect x="5" y="15" width="30" height="39" rx="7" fill="${c}" opacity=".9"/><rect x="10" y="27" width="20" height="13" rx="2" fill="#fff" opacity=".85"/></svg>`;
