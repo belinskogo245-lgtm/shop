@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Заказ aromaopt</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{
+  --bg:#efeff4; --card:#ffffff; --fg:#111114; --muted:#7a7a85; --line:#dcdce3;
+  --btn:#0d0d10; --btn-fg:#ffffff; --accent:#2f80ed; --ok:#2e7d4f; --warn:#b4471d; --warn-soft:#fbe9df;
+  --f-ui:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; --r:16px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f0f12; --card:#1b1b20; --fg:#f2f2f5; --muted:#9a9aa6; --line:#2c2c34;
+  --btn:#f2f2f5; --btn-fg:#0f0f12; --accent:#5aa0ff; --ok:#5fcf8d; --warn:#ff9a6b; --warn-soft:#3a2219; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f0f12; --card:#1b1b20; --fg:#f2f2f5; --muted:#9a9aa6; --line:#2c2c34;
+  --btn:#f2f2f5; --btn-fg:#0f0f12; --accent:#5aa0ff; --ok:#5fcf8d; --warn:#ff9a6b; --warn-soft:#3a2219; color-scheme:dark}
+*,*::before,*::after{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--fg);margin:0}
+body{font-family:var(--f-ui);font-size:15px;line-height:1.35;padding:12px max(16px,env(safe-area-inset-left,0px)) calc(24px + env(safe-area-inset-bottom,0px))}
+button,a.b{font:inherit;cursor:pointer}
+h1{font-size:24px;margin:4px 0 2px}
+.sub{color:var(--muted);font-size:14px;margin-bottom:12px}
+.box{background:var(--card);border-radius:var(--r);padding:12px 14px;margin-bottom:12px}
+.who div{margin:2px 0}.who b{font-weight:700}
+.it{display:flex;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:10px;margin-bottom:10px}
+.it .ph{width:96px;height:96px;flex:none;border-radius:12px;background:#fff;overflow:hidden;display:grid;place-items:center;color:#999;font-size:12px}
+.it .ph img{width:100%;height:100%;object-fit:contain}
+.it .t{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.it .nm{font-weight:700;text-transform:uppercase;font-size:15px;overflow-wrap:anywhere}
+.it .art{color:var(--muted);font-size:13px}
+.it .q{font-weight:800;font-size:16px;font-variant-numeric:tabular-nums;margin-top:auto}
+.it .ln{color:var(--muted);font-variant-numeric:tabular-nums}
+.it.multi{border-color:var(--accent)}
+.sum{background:var(--card);border-radius:var(--r);padding:12px 14px;display:grid;gap:6px;font-variant-numeric:tabular-nums;margin:6px 0 12px}
+.sum div{display:flex;justify-content:space-between;gap:10px}
+.sum .total{font-weight:800;font-size:19px;border-top:1px solid var(--line);padding-top:8px}
+.note{background:var(--warn-soft);color:var(--warn);border-radius:12px;padding:10px 12px;font-size:14px;margin-bottom:12px}
+.acts{display:grid;gap:8px}
+.b{display:block;width:100%;text-align:center;text-decoration:none;background:var(--btn);color:var(--btn-fg);border:0;border-radius:14px;padding:14px;font-weight:700}
+.b.l{background:var(--card);color:var(--fg);border:1px solid var(--line)}
+.empty{color:var(--muted);text-align:center;padding:40px 10px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--btn);color:var(--btn-fg);padding:10px 16px;border-radius:12px;font-size:14px}
+</style>
+</head>
+<body>
+<div id="app"><div class="empty">Открываем заказ…</div></div>
+<script>
+/* Страница заказа: ссылка order.html?o=... приходит в Telegram кнопкой «Открыть заказ».
+   В ссылке зашиты позиции (артикул, кол-во, цена) и данные клиента; фото и названия берутся из каталога. */
+const API_URL = "https://script.google.com/macros/s/AKfycbysDIVdkJbYzcfpMO5a8AwE7MOqRdKMN803f0lgjVwKPvRE-rcHGzESyYckJ2-pvYXnhg/exec";
+const tg = window.Telegram && window.Telegram.WebApp;
+if (tg) { try { tg.ready(); tg.expand(); } catch(e){} }
+const $ = s=>document.querySelector(s);
+const esc = s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const money = n=>(Math.round(n*100)/100).toLocaleString("ru-RU",{maximumFractionDigits:2})+" $";
+function toast(t){ const d=document.createElement("div"); d.className="toast"; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(),2200); }
+
+function decode(s){
+  s=s.replace(/-/g,"+").replace(/_/g,"/"); while(s.length%4) s+="=";
+  const bin=atob(s), bytes=Uint8Array.from(bin,c=>c.charCodeAt(0));
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+function getOrder(){
+  const p=new URLSearchParams(location.search), raw=p.get("o") || (tg&&tg.initDataUnsafe&&tg.initDataUnsafe.start_param) || "";
+  try{ return raw?decode(raw):null; }catch(e){ return null; }
+}
+function catFrom(rows){
+  const m={}; (rows||[]).forEach(r=>{ const imgs=String(r[6]||"").split(/[,\s]+/).filter(u=>/^https?:/.test(u));
+    m[String(r[0])]={name:r[2],vol:r[3]||"",img:imgs[0]||"",cat:r[1]}; }); return m;
+}
+let CAT={};
+try{ CAT=catFrom(JSON.parse(localStorage.getItem("catalog")||"[]")); }catch(e){}
+
+function render(o){
+  if(!o){ $("#app").innerHTML='<div class="empty">Не удалось прочитать заказ. Откройте его кнопкой из сообщения бота.</div>'; return; }
+  const lines=o.i.map(([id,qty,price,name])=>{ const c=CAT[String(id)]||{}; return {id,qty,price,name:c.name||name||("арт. "+id),vol:c.vol,img:c.img}; });
+  const qty=lines.reduce((s,l)=>s+l.qty,0), base=lines.reduce((s,l)=>s+l.qty*l.price,0);
+  const total = o.t!=null ? o.t : base+(o.x||0);
+  const c=o.c||{};
+  $("#app").innerHTML=`
+  <h1>Заказ${o.n?" №"+esc(o.n):""}</h1>
+  <div class="sub">${esc(o.d||"")}</div>
+  <div class="box who">
+    <div><b>${esc(c.name||"Клиент")}</b>${c.contact?" · "+esc(c.contact):""}</div>
+    ${c.tgu?`<div>Telegram: @${esc(c.tgu)}</div>`:""}
+    ${c.city?`<div>Город/ТК: ${esc(c.city)}</div>`:""}
+    ${c.note?`<div>Комментарий: ${esc(c.note)}</div>`:""}
+  </div>
+  ${lines.map(l=>`<div class="it${l.qty>1?" multi":""}">
+    <div class="ph">${l.img?`<img src="${esc(l.img)}" alt="" loading="lazy">`:"нет фото"}</div>
+    <div class="t"><div class="nm">${esc(l.name)}</div>
+      <div class="art">арт. ${esc(l.id)}${l.vol?" · "+esc(l.vol):""}</div>
+      <div class="q">${money(l.price)} × ${l.qty} шт.</div>
+      ${l.qty>1?`<div class="ln">= ${money(l.price*l.qty)}</div>`:""}</div></div>`).join("")}
+  ${o.x?`<div class="note">Сумма ниже опта — к заказу добавлена наценка ${money(o.x)}.</div>`:""}
+  <div class="sum">
+    <div><span>Позиций</span><span>${lines.length}</span></div>
+    <div><span>Всего товаров</span><span>${qty} шт.</span></div>
+    ${o.x?`<div><span>По оптовым ценам</span><span>${money(base)}</span></div><div><span>Наценка ниже опта</span><span>+ ${money(o.x)}</span></div>`:""}
+    <div class="total"><span>Итоговая стоимость</span><span>${money(total)}</span></div>
+  </div>
+  <div class="acts">
+    ${contactBtn(c)}
+    <button class="b l" id="copy">Скопировать список</button>
+  </div>`;
+  $("#copy").onclick=()=>{
+    const txt=lines.map((l,k)=>`${k+1}. ${l.name} (арт. ${l.id}) — ${l.qty} шт × ${money(l.price)} = ${money(l.qty*l.price)}`).join("\n")
+      +`\n\nВсего: ${qty} шт.${o.x?`\nНаценка: ${money(o.x)}`:""}\nИтого: ${money(total)}\n${c.name||""} ${c.contact||""} ${c.city||""}`.trimEnd();
+    (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>toast("Список скопирован"),()=>{ prompt("Скопируйте список:",txt); });
+  };
+}
+function contactBtn(c){
+  if(c.tgu) return `<a class="b" href="https://t.me/${encodeURIComponent(c.tgu)}">Написать клиенту в Telegram</a>`;
+  const ph=String(c.contact||"").replace(/\D/g,"");
+  if(/^@?\w{4,}$/.test(String(c.contact||"")) && !ph) return `<a class="b" href="https://t.me/${encodeURIComponent(String(c.contact).replace("@",""))}">Написать клиенту в Telegram</a>`;
+  if(ph.length>=10) return `<a class="b" href="tel:+${ph}">Позвонить ${esc(c.contact)}</a><a class="b l" href="https://wa.me/${ph}">Написать в WhatsApp</a>`;
+  return "";
+}
+
+const ORDER=getOrder();
+render(ORDER);
+// обновляем фото/названия из свежего каталога
+if(ORDER) fetch(API_URL+"?action=catalog").then(r=>r.json()).then(j=>{ if(j.ok){ CAT=catFrom(j.items); try{localStorage.setItem("catalog",JSON.stringify(j.items))}catch(e){} render(ORDER); } }).catch(()=>{});
+</script>
+</body>
+</html>
