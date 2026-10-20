@@ -278,7 +278,7 @@ function viewCart(){
     <div class="total"><span>Итого</span><span>${sumTxt(c)}</span></div></div>
   <form class="form" id="order">
     <label for="f-name">Имя<input id="f-name" required value="${esc(tgUser().name)}"></label>
-    <label for="f-phone">Телефон или Telegram<input id="f-phone" required placeholder="+7… или @ник" value="${esc(tgUser().user?"@"+tgUser().user:"")}"></label>
+    <label for="f-phone">${tgUser().id?"Телефон или Telegram":"Телефон (WhatsApp / Макс) или Telegram"}<input id="f-phone" required placeholder="${tgUser().id?"+7… или @ник":"+7…"}" value="${esc(tgUser().user?"@"+tgUser().user:"")}"></label>
     <label for="f-city">Город и транспортная компания<input id="f-city" placeholder="Например, Иркутск, СДЭК"></label>
     <label for="f-note">Комментарий<textarea id="f-note" rows="2"></textarea></label>
     <button class="big" type="submit">Оформить заказ на ${sumTxt(c)}</button>
