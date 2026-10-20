@@ -190,6 +190,9 @@ async function load(){
   } else ITEMS = norm(DEMO);
   CATS = ["Главная", ...new Set(ITEMS.map(x=>x.cat))];
   render();
+  // описания ароматов из desc.json (если в таблице колонка «Описание» пустая)
+  try{ const d=await (await fetch("desc.json?v="+Math.floor(Date.now()/36e5))).json();
+    ITEMS.forEach(it=>{ if(!it.desc && d[it.id]) it.desc=d[it.id]; }); }catch(e){}
 }
 const $ = s=>document.querySelector(s);
 const esc = s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
