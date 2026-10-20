@@ -144,8 +144,8 @@ const CONFIG = {
   SURCHARGE_TESTER: 1.8,             // наценка ниже опта на тестеры 25/30/35/40 мл, $ за шт.
   SURCHARGE_OTHER: 5,                // наценка ниже опта на остальное, $ за шт.
   PAGE: 60,
-  // Акция 62 мл: цена в рублях зависит от общего числа флаконов 62 мл в корзине (можно разные ароматы)
-  PROMO: { cat:"Акция 62 мл", tiers:[ {from:100,price:280}, {from:50,price:350}, {from:10,price:400}, {from:1,price:450} ] }
+  // Акция 62 мл: цена в $ зависит от общего числа флаконов 62 мл в корзине (можно разные ароматы)
+  PROMO: { cat:"Акция 62 мл", tiers:[ {from:100,price:3}, {from:50,price:3.5}, {from:10,price:4.5}, {from:1,price:5.5} ] }
 };
 /* ===== ДАННЫЕ (демо: часть каталога). Формат: [арт, категория, название, объём, цена $, в наличии 1/0, фото] ===== */
 const DEMO = /*__DATA__*/[];
@@ -184,12 +184,12 @@ const isPromo = it=>it.cat===CONFIG.PROMO.cat;
 const tierOf = q=>CONFIG.PROMO.tiers.find(t=>q>=t.from) || CONFIG.PROMO.tiers[CONFIG.PROMO.tiers.length-1];
 const nextTier = q=>CONFIG.PROMO.tiers.slice().reverse().find(t=>t.from>q);
 const promoQty = ()=>Object.entries(S.cart).reduce((s,[id,n])=>{const it=ITEMS.find(x=>String(x.id)===id);return s+(it&&isPromo(it)?n:0)},0);
-const priceTxt = it=>isPromo(it)?rub(tierOf(Math.max(1,promoQty())).price):money(it.price);
+const priceTxt = it=>isPromo(it)?money(tierOf(Math.max(1,promoQty())).price):money(it.price);
 function promoBox(){
   const q=promoQty(), cur=tierOf(Math.max(1,q)), nx=nextTier(q);
   return `<div class="promo"><b>Акция 62 мл — чем больше берёте, тем дешевле</b>
-    <div class="tiers">${CONFIG.PROMO.tiers.slice().reverse().map((t,i,a)=>{const r=CONFIG.PROMO.tiers.slice().reverse();const hi=r[i+1]?r[i+1].from-1:null;return `<div class="${q&&t===cur?"on":""}">${hi?`${t.from}–${hi}`:`${t.from}+`} шт<b>${t.price} ₽</b></div>`}).join("")}</div>
-    <div style="margin-top:8px">${q?`У вас ${q} шт — цена ${cur.price} ₽ за флакон.`:`Считается общее количество флаконов 62 мл, ароматы можно смешивать.`}${nx?` Добавьте ещё ${nx.from-q} шт — будет ${nx.price} ₽ за флакон.`:(q?" Это максимальная скидка.":"")}</div></div>`;
+    <div class="tiers">${CONFIG.PROMO.tiers.slice().reverse().map((t,i,a)=>{const r=CONFIG.PROMO.tiers.slice().reverse();const hi=r[i+1]?r[i+1].from-1:null;return `<div class="${q&&t===cur?"on":""}">${hi?`${t.from}–${hi}`:`${t.from}+`} шт<b>${money(t.price)}</b></div>`}).join("")}</div>
+    <div style="margin-top:8px">${q?`У вас ${q} шт — цена ${money(cur.price)} за флакон.`:`Считается общее количество флаконов 62 мл, ароматы можно смешивать.`}${nx?` Добавьте ещё ${nx.from-q} шт — будет ${money(nx.price)} за флакон.`:(q?" Это максимальная скидка.":"")}</div></div>`;
 }
 const isTester = it=>/тестер/i.test(it.cat) || /\b(25|30|35|40)\s*(мл|ml)/i.test(it.vol+" "+it.name);
 const TINT = {"Селектив / наборы":"#c9a227","Селектив и ниша":"#8e5bd8","Арабская парфюмерия":"#b8732e","Оригинальный парфюм AD":"#2f80ed","Тестеры 35 мл":"#d6457f","Тестеры 25 мл":"#e0637a","Тестер 100 мл Турция":"#2aa198","Тестеры 22 мл":"#e8833a","Селектив Премиум":"#1f9d55","Тестеры 58 мл":"#7b61ff","Акция 62 мл":"#ff2fa0"};
@@ -225,7 +225,7 @@ function viewHome(){
   <div class="meta"><span>Товаров: ${a.length}</span><span>Опт от ${CONFIG.MIN_WHOLESALE} $</span></div>
   ${a.length?`<div class="grid">${part.map(it=>`
     <div class="item"><div class="ph">${thumb(it)}${it.vol?`<span class="vol">${esc(it.vol)}</span>`:""}</div>
-      <div class="price">${priceTxt(it)}</div>${isPromo(it)?`<div class="ptag">от 100 шт — ${CONFIG.PROMO.tiers[0].price} ₽</div>`:""}<div class="art">арт. ${it.id}</div>
+      <div class="price">${priceTxt(it)}</div>${isPromo(it)?`<div class="ptag">от 100 шт — ${money(CONFIG.PROMO.tiers[0].price)}</div>`:""}<div class="art">арт. ${it.id}</div>
       <div class="name">${esc(it.name)}</div>${addBtn(it)}</div>`).join("")}</div>
     ${a.length>S.shown?`<button class="more" id="more">Показать ещё ${Math.min(CONFIG.PAGE,a.length-S.shown)}</button>`:""}`
    :`<div class="empty">Ничего не нашлось. Попробуйте другое название или уберите фильтр.</div>`}
@@ -239,23 +239,24 @@ function calc(){
   const extra = opt?0:usd.reduce((s,l)=>s+(isTester(l.it)?CONFIG.SURCHARGE_TESTER:CONFIG.SURCHARGE_OTHER)*l.n,0);
   const qty = lines.reduce((s,l)=>s+l.n,0);
   const qtyRub = rubL.reduce((s,l)=>s+l.n,0), rubUnit = qtyRub?tierOf(qtyRub).price:0;
-  return {lines,usd,rubL,base,opt,extra,total:base+extra,qty,qtyRub,rubUnit,totalRub:qtyRub*rubUnit};
+  const totalRub = qtyRub*rubUnit;
+  return {lines,usd,rubL,base:base+totalRub,usdBase:base,opt,extra,total:base+totalRub+extra,qty,qtyRub,rubUnit,totalRub};
 }
-const sumTxt = c=>[c.usd.length?money(c.total):"",c.qtyRub?rub(c.totalRub):""].filter(Boolean).join(" + ");
+const sumTxt = c=>money(c.total);
 function viewCart(){
   const c = calc();
   if (!c.lines.length) return `<h1>Корзина</h1><div class="empty">Корзина пуста<br><br><button class="big" style="width:auto;padding:12px 22px" data-go="home">Вернуться в каталог</button></div>`;
   return `<h1>Корзина</h1>
   <div class="list">${c.lines.map(l=>`<div class="row"><div class="mini">${bottle(l.it)}</div>
-    <div class="txt"><div>${esc(l.it.name)}</div><div>арт. ${l.it.id} · ${isPromo(l.it)?`${rub(c.rubUnit)} · акция 62 мл`:`${money(l.it.price)}${c.opt?"":` + ${money(isTester(l.it)?CONFIG.SURCHARGE_TESTER:CONFIG.SURCHARGE_OTHER)}`}`}</div></div>
+    <div class="txt"><div>${esc(l.it.name)}</div><div>арт. ${l.it.id} · ${isPromo(l.it)?`${money(c.rubUnit)} · акция 62 мл`:`${money(l.it.price)}${c.opt?"":` + ${money(isTester(l.it)?CONFIG.SURCHARGE_TESTER:CONFIG.SURCHARGE_OTHER)}`}`}</div></div>
     <div class="stepper" style="margin:0"><button data-dec="${l.it.id}" aria-label="Меньше">−</button><span>${l.n}</span><button data-inc="${l.it.id}" aria-label="Больше">+</button></div></div>`).join("")}</div>
   ${c.qtyRub?promoBox():""}
   ${!c.usd.length?"":c.opt?`<div class="note ok">Сумма от ${CONFIG.MIN_WHOLESALE} $ — действуют оптовые цены.</div>`
-   :`<div class="note warn">До оптовых цен не хватает ${money(CONFIG.MIN_WHOLESALE-c.base)}. Сейчас считается с наценкой: тестеры 25/30/35/40 мл +${CONFIG.SURCHARGE_TESTER} $, остальное +${CONFIG.SURCHARGE_OTHER} $ за штуку. Доберите корзину или оформите по этой цене.</div>`}
+   :`<div class="note warn">До оптовых цен не хватает ${money(CONFIG.MIN_WHOLESALE-c.usdBase)}. Сейчас считается с наценкой: тестеры 25/30/35/40 мл +${CONFIG.SURCHARGE_TESTER} $, остальное +${CONFIG.SURCHARGE_OTHER} $ за штуку. Доберите корзину или оформите по этой цене.</div>`}
   <div class="sum"><div><span>Товаров</span><span>${c.qty} шт.</span></div>
-    ${c.usd.length?`<div><span>По оптовым ценам</span><span>${money(c.base)}</span></div>`:""}
+    ${c.usd.length?`<div><span>По оптовым ценам</span><span>${money(c.usdBase)}</span></div>`:""}
     ${c.extra?`<div><span>Наценка ниже опта</span><span>+ ${money(c.extra)}</span></div>`:""}
-    ${c.qtyRub?`<div><span>Акция 62 мл: ${c.qtyRub} шт × ${rub(c.rubUnit)}</span><span>${rub(c.totalRub)}</span></div>`:""}
+    ${c.qtyRub?`<div><span>Акция 62 мл: ${c.qtyRub} шт × ${money(c.rubUnit)}</span><span>${money(c.totalRub)}</span></div>`:""}
     <div class="total"><span>Итого</span><span>${sumTxt(c)}</span></div></div>
   <form class="form" id="order">
     <label for="f-name">Имя<input id="f-name" required value="${esc(tgUser().name)}"></label>
@@ -275,7 +276,7 @@ function viewInfo(){
   <h3>Цены и оплата</h3>
   <p>Цены в долларах. Оптовые цены действуют от ${CONFIG.MIN_WHOLESALE} $ в корзине. Можно оплатить в $ или в рублях по курсу, который мы назовём перед сборкой.</p>
   <h3>Акция 62 мл</h3>
-  <p>Цена в рублях и зависит от общего количества флаконов 62 мл в заказе (ароматы можно смешивать): ${CONFIG.PROMO.tiers.slice().reverse().map((t,i,a)=>a[i+1]?`${t.from}–${a[i+1].from-1} шт — ${t.price} ₽`:`от ${t.from} шт — ${t.price} ₽`).join(", ")}.</p>
+  <p>Цена зависит от общего количества флаконов 62 мл в заказе (ароматы можно смешивать): ${CONFIG.PROMO.tiers.slice().reverse().map((t,i,a)=>a[i+1]?`${t.from}–${a[i+1].from-1} шт — ${money(t.price)}`:`от ${t.from} шт — ${money(t.price)}`).join(", ")}. Опт от ${CONFIG.MIN_WHOLESALE} $ и наценка на эти флаконы не распространяются.</p>
   <h3>Условия</h3>
   <p>Весь товар перед отправкой проверяется. Возврата и обмена нет. После передачи товара в ТК ответственность за сохранность лежит на получателе.</p>
   <p>Претензии по внешнему виду, флакону, распылителю, стойкости и совпадению ароматов после получения не принимаются. Покупая по оптовой цене, вы соглашаетесь с этими условиями.</p>
@@ -309,7 +310,19 @@ let tt; function toast(m){ clearTimeout(tt); let t=$(".toast"); if(!t){t=documen
 function haptic(){ try{tg&&tg.HapticFeedback.impactOccurred("light")}catch(e){} }
 function setCart(id,d){ const n=(S.cart[id]||0)+d; if(n>0) S.cart[id]=n; else delete S.cart[id]; store.set("cart",S.cart); haptic(); render();
   const it=ITEMS.find(x=>String(x.id)===String(id));
-  if(it&&isPromo(it)&&d>0){ const q=promoQty(), nx=nextTier(q); toast(`Акция 62 мл: ${q} шт по ${tierOf(q).price} ₽`+(nx?`. Ещё ${nx.from-q} шт — и будет ${nx.price} ₽/шт`:". Максимальная скидка")); } }
+  if(it&&isPromo(it)&&d>0){ const q=promoQty(), nx=nextTier(q);
+    if(n===1 && q<CONFIG.PROMO.tiers[0].from) promoPopup();
+    else toast(`Акция 62 мл: ${q} шт по ${money(tierOf(q).price)}`+(nx?`. Ещё ${nx.from-q} шт — и будет ${money(nx.price)}/шт`:". Максимальная скидка")); } }
+function promoPopup(){
+  if(document.querySelector(".sheet")) return;
+  const sh=document.createElement("div"); sh.className="sheet";
+  const q=promoQty();
+  sh.innerHTML=`<div role="dialog" aria-label="Акция 62 мл">${promoBox()}
+    <p style="margin:4px 2px 12px;font-size:16px"><b>Возьмёте от ${CONFIG.PROMO.tiers[0].from} флаконов — всего ${money(CONFIG.PROMO.tiers[0].price)} за штуку!</b> Сейчас в корзине ${q} шт. Ароматы можно смешивать.</p>
+    <button class="big" data-close>Понятно</button></div>`;
+  document.body.appendChild(sh);
+  sh.addEventListener("click",e=>{ if(e.target===sh||e.target.closest("[data-close]")) sh.remove(); });
+}
 function openFilter(){
   const sh=document.createElement("div"); sh.className="sheet";
   const draw=()=>{ sh.innerHTML=`<div role="dialog" aria-label="Фильтр"><h2 style="margin:0 0 6px">Фильтр</h2>
@@ -326,8 +339,8 @@ async function submitOrder(e){
   e.preventDefault();
   const c=calc(), btn=e.target.querySelector("button[type=submit]");
   const order={ date:new Date().toLocaleString("ru-RU"), customer:{name:$("#f-name").value.trim(),contact:$("#f-phone").value.trim(),city:$("#f-city").value.trim(),note:$("#f-note").value.trim(),tg:tgUser()},
-    items:c.lines.map(l=>isPromo(l.it)?({id:l.it.id,name:l.it.name,cat:l.it.cat,price:c.rubUnit,qty:l.n,cur:"RUB"}):({id:l.it.id,name:l.it.name,cat:l.it.cat,price:l.it.price,qty:l.n})), base:c.base, extra:c.extra, total:c.total, qty:c.qty, opt:c.opt,
-    qtyRub:c.qtyRub, rubUnit:c.rubUnit, totalRub:c.totalRub, sumText:sumTxt(c) };
+    items:c.lines.map(l=>isPromo(l.it)?({id:l.it.id,name:l.it.name+" (акция 62 мл)",cat:l.it.cat,price:c.rubUnit,qty:l.n}):({id:l.it.id,name:l.it.name,cat:l.it.cat,price:l.it.price,qty:l.n})), base:c.base, extra:c.extra, total:c.total, qty:c.qty, opt:c.opt,
+    promoQty:c.qtyRub, promoUnit:c.rubUnit, sumText:sumTxt(c) };
   btn.disabled=true; btn.textContent="Отправляем…";
   if(!CONFIG.API_URL){ btn.disabled=false; btn.textContent="Оформить заказ на "+sumTxt(c); toast("Демо-режим: заказ не отправлен, подключим бота следующим шагом"); return; }
   try{
