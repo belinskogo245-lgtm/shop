@@ -87,7 +87,7 @@ h1{font-size:28px;margin:6px 2px 14px;text-wrap:balance}
 .sum .total{font-weight:800;font-size:18px;border-top:1px solid var(--line);padding-top:8px}
 .form{display:grid;gap:10px;margin-top:14px}
 .form label{display:grid;gap:4px;font-size:13px;color:var(--muted)}
-.form input,.form textarea{font:inherit;font-size:16px;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.form input,.form textarea,.form select{font:inherit;font-size:16px;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
 .big{width:100%;background:var(--btn);color:var(--btn-fg);border:0;border-radius:14px;padding:14px;font-weight:700;font-size:16px;margin-top:6px}
 .prof{display:flex;gap:12px;align-items:center;margin:6px 2px 14px}
 .ava{width:58px;height:58px;border-radius:50%;flex:none;display:grid;place-items:center;font-weight:800;font-size:22px;color:#fff;background:linear-gradient(135deg,#ff2fa0,#7a3cff)}
@@ -261,6 +261,7 @@ function calc(){
   return {lines,usd,rubL,base:base+totalRub,usdBase:base,opt,extra,total:base+totalRub+extra,qty,qtyRub,rubUnit,totalRub};
 }
 const sumTxt = c=>money(c.total);
+let CUST = store.get("cust",{});
 function viewCart(){
   const c = calc();
   if (!c.lines.length) return `<h1>Корзина</h1><div class="empty">Корзина пуста<br><br><button class="big" style="width:auto;padding:12px 22px" data-go="home">Вернуться в каталог</button></div>`;
@@ -277,9 +278,13 @@ function viewCart(){
     ${c.qtyRub?`<div><span>Акция 62 мл: ${c.qtyRub} шт × ${money(c.rubUnit)}</span><span>${money(c.totalRub)}</span></div>`:""}
     <div class="total"><span>Итого</span><span>${sumTxt(c)}</span></div></div>
   <form class="form" id="order">
-    <label for="f-name">Имя<input id="f-name" required value="${esc(tgUser().name)}"></label>
-    <label for="f-phone">${tgUser().id?"Телефон или Telegram":"Телефон (WhatsApp / Макс) или Telegram"}<input id="f-phone" required placeholder="${tgUser().id?"+7… или @ник":"+7…"}" value="${esc(tgUser().user?"@"+tgUser().user:"")}"></label>
-    <label for="f-city">Город и транспортная компания<input id="f-city" placeholder="Например, Иркутск, СДЭК"></label>
+    <label for="f-name">Имя *<input id="f-name" required value="${esc(CUST.name||tgUser().name)}"></label>
+    <label for="f-phone">${tgUser().id?"Телефон или Telegram *":"Телефон (WhatsApp / Макс) или Telegram *"}<input id="f-phone" required placeholder="${tgUser().id?"+7… или @ник":"+7…"}" value="${esc(CUST.contact||(tgUser().user?"@"+tgUser().user:""))}"></label>
+    <label for="f-city">Город доставки *<input id="f-city" required placeholder="Например, Иркутск" value="${esc(CUST.city||"")}"></label>
+    <label for="f-tk">Транспортная компания *<select id="f-tk" required>
+      <option value="" disabled ${CUST.tk?"":"selected"}>Выберите</option>
+      ${["СДЭК","ПЭК","Деловые линии","Почта России","Самовывоз"].map(t=>`<option ${CUST.tk===t?"selected":""}>${t}</option>`).join("")}</select></label>
+    <label for="f-fio">ФИО получателя (для накладной)<input id="f-fio" placeholder="Можно заполнить позже" value="${esc(CUST.fio||"")}"></label>
     <label for="f-note">Комментарий<textarea id="f-note" rows="2"></textarea></label>
     <button class="big" type="submit">Оформить заказ на ${sumTxt(c)}</button>
   </form>
@@ -387,11 +392,12 @@ function orderLink(o){
 async function submitOrder(e){
   e.preventDefault();
   const c=calc(), btn=e.target.querySelector("button[type=submit]");
-  const order={ date:new Date().toLocaleString("ru-RU"), customer:{name:$("#f-name").value.trim(),contact:$("#f-phone").value.trim(),city:$("#f-city").value.trim(),note:$("#f-note").value.trim(),tg:tgUser()},
+  const order={ date:new Date().toLocaleString("ru-RU"), customer:{name:$("#f-name").value.trim(),contact:$("#f-phone").value.trim(),city:[$("#f-city").value.trim(),$("#f-tk").value].filter(Boolean).join(", "),
+      note:[$("#f-fio").value.trim()?"Получатель: "+$("#f-fio").value.trim():"",$("#f-note").value.trim()].filter(Boolean).join(". "),tg:tgUser()},
     items:c.lines.map(l=>isPromo(l.it)?({id:l.it.id,name:l.it.name+" (акция 62 мл)",cat:l.it.cat,price:c.rubUnit,qty:l.n}):({id:l.it.id,name:l.it.name,cat:l.it.cat,price:l.it.price,qty:l.n})), base:c.base, extra:c.extra, total:c.total, qty:c.qty, opt:c.opt,
     promoQty:c.qtyRub, promoUnit:c.rubUnit, sumText:sumTxt(c) };
   order.num=String(Date.now()).slice(-6);
-  order.viewUrl=orderLink(order);
+  CUST={name:$("#f-name").value.trim(),contact:$("#f-phone").value.trim(),city:$("#f-city").value.trim(),tk:$("#f-tk").value,fio:$("#f-fio").value.trim()}; store.set("cust",CUST);
   btn.disabled=true; btn.textContent="Отправляем…";
   if(!CONFIG.API_URL){ btn.disabled=false; btn.textContent="Оформить заказ на "+sumTxt(c); toast("Демо-режим: заказ не отправлен, подключим бота следующим шагом"); return; }
   try{
