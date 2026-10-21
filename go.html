@@ -88,6 +88,18 @@ h1{font-family:var(--f-serif);font-weight:400;font-size:32px;letter-spacing:.06e
     <span class="arr">›</span>
   </a>
 
+  <script>
+  /* Сначала открываем Telegram напрямую (tg://) — так работает и с иконки на экране «Домой»;
+     если Telegram не открылся за 1,5 с, переходим на обычную ссылку t.me */
+  document.querySelector('.tg').addEventListener('click', function(e){
+    e.preventDefault();
+    var web = this.href, left = false;
+    document.addEventListener('visibilitychange', function(){ if (document.hidden) left = true; }, {once:true});
+    location.href = 'tg://resolve?domain=gsm_catalog_bot&startapp';
+    setTimeout(function(){ if (!left) location.href = web; }, 1500);
+  });
+  </script>
+
   <p class="foot">Сохраните на экран «Домой» —<br>каталог всегда будет под рукой <span>✦</span></p>
 </main>
 </body>
