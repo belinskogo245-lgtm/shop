@@ -120,10 +120,15 @@ function contactBtn(c){
   return "";
 }
 
-const ORDER=getOrder();
-render(ORDER);
+let ORDER=getOrder();
+const OID=new URLSearchParams(location.search).get("id");
+if(OID){
+  fetch(API_URL+"?action=order&id="+encodeURIComponent(OID)).then(r=>r.json())
+    .then(j=>{ if(!j.ok) throw 0; ORDER=j.order; render(ORDER); loadCat(); })
+    .catch(()=>{ $("#app").innerHTML='<div class="empty">Не удалось загрузить заказ. Проверьте интернет и откройте ещё раз.</div>'; });
+} else { render(ORDER); loadCat(); }
 // обновляем фото/названия из свежего каталога
-if(ORDER) fetch(API_URL+"?action=catalog").then(r=>r.json()).then(j=>{ if(j.ok){ CAT=catFrom(j.items); try{localStorage.setItem("catalog",JSON.stringify(j.items))}catch(e){} render(ORDER); } }).catch(()=>{});
+function loadCat(){ if(ORDER) fetch(API_URL+"?action=catalog").then(r=>r.json()).then(j=>{ if(j.ok){ CAT=catFrom(j.items); try{localStorage.setItem("catalog",JSON.stringify(j.items))}catch(e){} render(ORDER); } }).catch(()=>{}); }
 </script>
 </body>
 </html>
