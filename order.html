@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Заказ aromaopt</title>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>/* Telegram SDK грузим только внутри Telegram, чтобы в браузере без VPN ничего не тормозило */
+if (/tgWebApp/.test(location.hash + location.search)) document.write('<script src="https://telegram.org/js/telegram-web-app.js"><\/script>');</script>
 <style>
 :root{
   --bg:#efeff4; --card:#ffffff; --fg:#111114; --muted:#7a7a85; --line:#dcdce3;
