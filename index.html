@@ -283,7 +283,7 @@ function viewCart(){
     <label for="f-city">Город доставки *<input id="f-city" required placeholder="Например, Иркутск" value="${esc(CUST.city||"")}"></label>
     <label for="f-tk">Транспортная компания *<select id="f-tk" required>
       <option value="" disabled ${CUST.tk?"":"selected"}>Выберите</option>
-      ${["СДЭК","ПЭК","Деловые линии","Почта России","Самовывоз"].map(t=>`<option ${CUST.tk===t?"selected":""}>${t}</option>`).join("")}</select></label>
+      ${["СДЭК","Ozon","Почта России","Молния"].map(t=>`<option ${CUST.tk===t?"selected":""}>${t}</option>`).join("")}</select></label>
     <label for="f-fio">ФИО получателя (для накладной)<input id="f-fio" placeholder="Можно заполнить позже" value="${esc(CUST.fio||"")}"></label>
     <label for="f-note">Комментарий<textarea id="f-note" rows="2"></textarea></label>
     <button class="big" type="submit">Оформить заказ на ${sumTxt(c)}</button>
