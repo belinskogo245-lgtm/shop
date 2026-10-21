@@ -92,6 +92,9 @@ h1{font-family:var(--f-serif);font-weight:400;font-size:32px;letter-spacing:.06e
   /* Сначала открываем Telegram напрямую (tg://) — так работает и с иконки на экране «Домой»;
      если Telegram не открылся за 1,5 с, переходим на обычную ссылку t.me */
   document.querySelector('.tg').addEventListener('click', function(e){
+    /* Внутри Telegram и в обычном браузере — простая ссылка t.me (Telegram сам откроет бота).
+       Хитрость с tg:// нужна только для иконки на экране «Домой» iPhone */
+    if (!navigator.standalone) return;
     e.preventDefault();
     var web = this.href, left = false;
     document.addEventListener('visibilitychange', function(){ if (document.hidden) left = true; }, {once:true});
