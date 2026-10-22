@@ -213,7 +213,7 @@ function norm(rows){
 async function load(){
   if (CONFIG.API_URL){
     try{
-      const res = await fetch(CONFIG.API_URL+"?action=catalog");
+      const res = await fetch(CONFIG.API_URL+"?action=catalog&t="+Date.now(), {cache:"no-store"});
       const j = await res.json();
       if(!j.ok) throw new Error("bad");
       ITEMS = norm(j.items); store.set("catalog",j.items);
