@@ -205,9 +205,11 @@ const S = { view:"home", cat:"Главная", q:"", inStock:false, sort:"", sho
   cart: store.get("cart",{}), orders: store.get("orders",[]),
   me: null, gp: store.get("gp",{}), rate: store.get("rate",0), rateDate: store.get("rateDate",""), partners: null };
 
+/* «нет», «0», «false», пусто — нет в наличии */
+const inStock = v=>{ if(typeof v==="boolean") return v; const t=String(v??"").trim().toLowerCase(); return !!t && !["нет","0","false","no","-","нет в наличии"].includes(t); };
 function norm(rows){
   return rows.map(r=>{ const imgs=String(r[6]||"").split(/[,\s]+/).filter(u=>/^https?:/.test(u));
-    return {id:r[0],cat:r[1],name:r[2],vol:r[3]||"",price:+r[4],stock:!!r[5],img:imgs[0]||"",imgs,desc:String(r[7]||"").trim()}; })
+    return {id:r[0],cat:r[1],name:r[2],vol:r[3]||"",price:+r[4],stock:inStock(r[5]),img:imgs[0]||"",imgs,desc:String(r[7]||"").trim()}; })
     .filter(x=>x.name && x.price>0);
 }
 async function load(){
