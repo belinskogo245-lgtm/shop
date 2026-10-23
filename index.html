@@ -524,7 +524,7 @@ function tgUser(){
 function inviteLink(){ return S.me?BOT_APP+"r_"+S.me.id:""; }
 function inviteBox(){
   const m=S.me; if(!m) return "";
-  const adm = m.isAdmin?`<button class="big alt" style="margin-top:10px" data-act="partners">Партнёры (видно только вам)</button>`:"";
+  const adm = m.isAdmin?`<button class="big" style="margin-top:10px" data-act="orders">Заказы (видно только вам)</button><button class="big alt" style="margin-top:10px" data-act="partners">Партнёры (видно только вам)</button>`:"";
   if(!m.canInvite) return `<div class="inv"><h3>Приведи друга</h3><p>После первого оплаченного заказа здесь появится ваша ссылка. Друг получит флакон 62 мл в подарок к первому заказу от 120 $, и вы тоже получите флакон 62 мл.</p>${adm}</div>`;
   const need=Math.max(0,(m.friendsForDiscount||5)-(m.friends||0));
   return `<div class="inv"><h3>Приведи друга — флакон 62 мл в подарок</h3>
@@ -541,6 +541,29 @@ function viewPartners(){
   return `<h1>Партнёры</h1><p class="foot" style="margin-top:0">Подробно — в таблице, лист «Партнёры». Команды боту: «курс 90», «привязать 15 @ник», «партнёр @ник», «партнёры».</p>${body}
   <button class="big alt" style="margin-top:14px" data-go="profile">Назад</button>`;
 }
+/* Заказы всех клиентов — только для вас. Данные из листа «Заказы». */
+function invoiceRub(o,rate){
+  const lines=String(o.lines||"").split("\n").filter(Boolean);
+  let sum=0;
+  const out=lines.map((l,k)=>{ const m=l.match(/^(.*?) × (\d+) = ([\d.,]+) \$$/);
+    if(!m||!rate) return (k+1)+". "+l;
+    const q=+m[2], usd=parseFloat(m[3].replace(",",".")), rub=Math.round(usd*rate); sum+=rub;
+    return `${k+1}. ${m[1]} — ${q} шт × ${Math.round(usd/q*rate).toLocaleString("ru-RU")} ₽ = ${rub.toLocaleString("ru-RU")} ₽`; });
+  const tot = rate ? Math.round(o.total*rate) : 0;
+  return `Накладная по заказу №${o.num} от ${o.date}\n${o.name} ${o.contact}\n${o.city}${o.note?"\n"+o.note:""}\n\n`+out.join("\n")+
+    `\n\nВсего: ${o.qty} шт.`+(o.extra&&rate?`\nНаценка (заказ ниже 120 $): ${Math.round(o.extra*rate).toLocaleString("ru-RU")} ₽`:"")+
+    (rate?`\nИтого к оплате: ${tot.toLocaleString("ru-RU")} ₽ (курс ${rate} ₽/$, ${money(o.total)})`:`\nИтого: ${money(o.total)}`);
+}
+function viewOrders(){
+  const p=S.adminOrders, rate=(p&&p.rate)||S.rate;
+  const st=s=>s==="оплачен"?`<span style="color:var(--ok);font-weight:700">оплачен</span>`:esc(s||"новый");
+  const body = !p?`<div class="empty">Загружаем…</div>`:!p.ok?`<div class="empty">Не удалось загрузить${p.error==="forbidden"?" — раздел только для владельца":""}</div>`:!p.rows.length?`<div class="empty" style="padding:24px">Заказов пока нет</div>`
+    :`<div class="list">${p.rows.map((o,k)=>`<div class="row" style="flex-direction:column;align-items:stretch;gap:6px"><div class="txt"><div><b>№${o.num}</b> · ${esc(o.name)} ${esc(o.tg||o.contact)}</div>
+      <div>${esc(o.date)} · ${o.qty} шт. · ${money(o.total)}${rate?" ≈ "+Math.round(o.total*rate).toLocaleString("ru-RU")+" ₽":""} · ${st(o.status)}</div>${o.city?`<div>${esc(o.city)}</div>`:""}</div>
+      <div class="btns" style="display:flex;gap:8px">${o.oid?`<a class="big" style="flex:1;text-align:center;text-decoration:none;margin:0;padding:10px" href="order.html?id=${encodeURIComponent(o.oid)}">С фото</a>`:""}<button class="big alt" style="flex:1;margin:0;padding:10px" data-inv="${k}">Накладная в ₽</button></div></div>`).join("")}</div>`;
+  return `<h1>Заказы</h1><p class="foot" style="margin-top:0">Последние 100 заказов из таблицы, лист «Заказы».${rate?" Курс "+rate+" ₽/$ (меняется командой боту «курс 90»).":""}</p>${body}
+  <button class="big alt" style="margin-top:14px" data-go="profile">Назад</button>`;
+}
 function viewProfile(){
   const ic=(bg,p)=>`<span class="ic" style="background:${bg}"><svg viewBox="0 0 24 24" fill="#fff">${p}</svg></span>`;
   return `<div class="prof"><div class="ava">${esc((tgUser().name||"П")[0])}</div><div><h2>${esc(tgUser().name||"Проверенный поставщик")}</h2><p>${esc(CONFIG.SHOP_HANDLE)}</p></div></div>
@@ -555,7 +578,7 @@ function viewProfile(){
    :`<div class="list"><div class="empty" style="padding:24px">Вы ещё не сделали ни одного заказа</div></div>`}`;
 }
 function render(){
-  const v = {home:viewHome,cart:viewCart,info:viewInfo,profile:viewProfile,partners:viewPartners}[S.view];
+  const v = {home:viewHome,cart:viewCart,info:viewInfo,profile:viewProfile,partners:viewPartners,orders:viewOrders}[S.view];
   $("#app").innerHTML = v();
   document.querySelectorAll("nav.bar button").forEach(b=>{ if(b.dataset.go===S.view) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current"); });
   const q = calc().qty, bd=$("#badge"); bd.textContent=q; bd.hidden=!q;
@@ -653,8 +676,12 @@ document.addEventListener("click",e=>{
     if(act==="share"){ const txt="Оптовый каталог парфюмерии — флакон 62 мл в подарок к первому заказу по моей ссылке"; const u="https://t.me/share/url?url="+encodeURIComponent(link)+"&text="+encodeURIComponent(txt);
       try{ tg?tg.openTelegramLink(u):window.open(u,"_blank"); }catch(err){ window.open(u,"_blank"); } }
     else if(act==="copy"){ (navigator.clipboard?navigator.clipboard.writeText(link):Promise.reject()).then(()=>toast("Ссылка скопирована"),()=>toast("Выделите ссылку и скопируйте")); }
+    else if(act==="orders"){ S.view="orders"; S.adminOrders=null; render(); window.scrollTo(0,0); api({action:"orders"}).then(j=>{S.adminOrders=j;render();}).catch(()=>{S.adminOrders={ok:false};render();}); }
     else if(act==="partners"){ S.view="partners"; S.partners=null; render(); window.scrollTo(0,0); api({action:"partners"}).then(j=>{S.partners=j;render();}).catch(()=>{S.partners={ok:false};render();}); }
     return; }
+  const inv=e.target.closest("[data-inv]");
+  if(inv&&S.adminOrders&&S.adminOrders.rows){ const o=S.adminOrders.rows[+inv.dataset.inv], txt=invoiceRub(o,S.adminOrders.rate||S.rate);
+    (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>toast("Накладная в рублях скопирована"),()=>prompt("Скопируйте накладную:",txt)); return; }
   const t=e.target.closest("[data-go],[data-cat],[data-inc],[data-dec],[data-open],#more,#filt"); if(!t) return;
   if(t.dataset.open){ openProduct(t.dataset.open); return; }
   if(t.dataset.go){ closeProduct(); S.view=t.dataset.go; render(); window.scrollTo(0,0); }

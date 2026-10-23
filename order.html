@@ -72,7 +72,9 @@ function catFrom(rows){
   const m={}; (rows||[]).forEach(r=>{ const imgs=String(r[6]||"").split(/[,\s]+/).filter(u=>/^https?:/.test(u));
     m[String(r[0])]={name:r[2],vol:r[3]||"",img:imgs[0]||"",cat:r[1]}; }); return m;
 }
-let CAT={};
+let CAT={}, RATE=0;
+try{ RATE=+localStorage.getItem("rate_o")||0; }catch(e){}
+const rub=n=>Math.round(n).toLocaleString("ru-RU")+" ₽";
 try{ CAT=catFrom(JSON.parse(localStorage.getItem("catalog")||"[]")); }catch(e){}
 
 function render(o){
@@ -102,11 +104,19 @@ function render(o){
     <div><span>Всего товаров</span><span>${qty} шт.</span></div>
     ${o.x?`<div><span>По оптовым ценам</span><span>${money(base)}</span></div><div><span>Наценка ниже опта</span><span>+ ${money(o.x)}</span></div>`:""}
     <div class="total"><span>Итоговая стоимость</span><span>${money(total)}</span></div>
+    ${RATE?`<div class="total" style="border:0;padding-top:0"><span>В рублях (курс ${RATE})</span><span>${rub(total*RATE)}</span></div>`:""}
   </div>
   <div class="acts">
     ${contactBtn(c)}
-    <button class="b l" id="copy">Скопировать список</button>
+    ${RATE?`<button class="b" id="copyr">Скопировать накладную в ₽</button>`:""}
+    <button class="b l" id="copy">Скопировать список в $</button>
   </div>`;
+  if($("#copyr")) $("#copyr").onclick=()=>{
+    const txt=`Накладная${o.n?" по заказу №"+o.n:""}${o.d?" от "+o.d:""}\n${[c.name,c.contact].filter(Boolean).join(" ")}${c.city?"\n"+c.city:""}${c.note?"\n"+c.note:""}\n\n`
+      +lines.map((l,k)=>`${k+1}. ${l.name} (арт. ${l.id}) — ${l.qty} шт × ${rub(l.price*RATE)} = ${rub(l.qty*l.price*RATE)}`).join("\n")
+      +`\n\nВсего: ${qty} шт.${o.x?`\nНаценка (заказ ниже 120 $): ${rub(o.x*RATE)}`:""}\nИтого к оплате: ${rub(total*RATE)} (курс ${RATE} ₽/$, ${money(total)})`;
+    (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>toast("Накладная в рублях скопирована"),()=>{ prompt("Скопируйте накладную:",txt); });
+  };
   $("#copy").onclick=()=>{
     const txt=lines.map((l,k)=>`${k+1}. ${l.name} (арт. ${l.id}) — ${l.qty} шт × ${money(l.price)} = ${money(l.qty*l.price)}`).join("\n")
       +`\n\nВсего: ${qty} шт.${o.x?`\nНаценка: ${money(o.x)}`:""}\nИтого: ${money(total)}\n${c.name||""} ${c.contact||""} ${c.city||""}`.trimEnd();
@@ -129,7 +139,7 @@ if(OID){
     .catch(()=>{ $("#app").innerHTML='<div class="empty">Не удалось загрузить заказ. Проверьте интернет и откройте ещё раз.</div>'; });
 } else { render(ORDER); loadCat(); }
 // обновляем фото/названия из свежего каталога
-function loadCat(){ if(ORDER) fetch(API_URL+"?action=catalog").then(r=>r.json()).then(j=>{ if(j.ok){ CAT=catFrom(j.items); try{localStorage.setItem("catalog",JSON.stringify(j.items))}catch(e){} render(ORDER); } }).catch(()=>{}); }
+function loadCat(){ if(ORDER) fetch(API_URL+"?action=catalog").then(r=>r.json()).then(j=>{ if(j.ok){ CAT=catFrom(j.items); if(j.rate){ RATE=+j.rate; try{localStorage.setItem("rate_o",RATE)}catch(e){} } try{localStorage.setItem("catalog",JSON.stringify(j.items))}catch(e){} render(ORDER); } }).catch(()=>{}); }
 </script>
 </body>
 </html>

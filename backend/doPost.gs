@@ -4,6 +4,7 @@ function doPost(e) {
     const body = JSON.parse(e.postData.contents);
     if (body.action === 'me') return json_(me_(body));
     if (body.action === 'partners') return json_(partners_(body));
+    if (body.action === 'orders') return json_(orders_(body));
     if (body.action !== 'order') return json_({ ok: false, error: 'unknown action' });
     const o = body.order;
     if (!o || !o.items || !o.items.length) return json_({ ok: false, error: 'empty order' });
