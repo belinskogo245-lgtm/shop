@@ -325,6 +325,13 @@ function filtered(){
   let a = ITEMS.filter(x=>(S.cat==="Главная"||x.cat===S.cat) && (!S.inStock||x.stock) && (!q||x.name.toLowerCase().includes(q)||String(x.id)===q));
   if (S.sort==="asc") a=[...a].sort((x,y)=>x.price-y.price);
   if (S.sort==="desc") a=[...a].sort((x,y)=>y.price-x.price);
+  /* Тестеры: по умолчанию по алфавиту бренда (название начинается с бренда); у мини-тестеров — внутри своего объёма */
+  if (!S.sort && /тестер/i.test(S.cat)) {
+    const key = it=>String(it.name).replace(/^[^0-9A-Za-zА-Яа-яЁё]+/,"");
+    const vo = {}; a.forEach(it=>{ if(!(it.vol in vo)) vo[it.vol]=Object.keys(vo).length; });
+    const byVol = S.cat===CONFIG.MINI.cat;
+    a=[...a].sort((x,y)=>(byVol?vo[x.vol]-vo[y.vol]:0) || key(x).localeCompare(key(y),"ru",{sensitivity:"base",numeric:true}));
+  }
   return a;
 }
 function addBtn(it){
