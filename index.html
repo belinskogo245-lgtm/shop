@@ -320,17 +320,81 @@ function bottle(it){
 }
 function thumb(it){ return it.img ? `<img src="${esc(it.img)}" alt="" loading="lazy">` : bottle(it); }
 
+/* Справочник брендов: «Бренд: варианты начала названия». Нужен, когда название начинается не с бренда или бренд пишут по-разному.
+   Если начало названия не найдено — брендом считается само название (оно обычно и начинается с бренда). */
+const BRAND_MAP = {
+  "Yves Saint Laurent":["yves saint laurent","ysl","saint laurent","black opium","libre","la nuit de l'homme","mon paris"],
+  "Dior":["christian dior","dior","miss dior","sauvage","j'adore","fahrenheit","hypnotic poison","poison"],
+  "Giorgio Armani":["giorgio armani","emporio armani","armani/prive","armani prive","armani","acqua di gio","stronger with you","si "],
+  "Chanel":["chanel","bleu de chanel","coco mademoiselle","chance","egoiste","allure"],
+  "Dolce & Gabbana":["dolce&gabbana","dolce & gabbana","dolce and gabbana","dolce gabbana","dolce","d&g","light blue","the one"],
+  "Lancome":["lancome","lancôme","la vie est belle","idole","tresor","la nuit tresor"],
+  "Hermes":["hermes","hermès","terre d'hermes","terre d'hermès"],
+  "Hugo Boss":["hugo boss","boss","hugo"],
+  "Kilian":["by kilian","kilian","vodka on the rocks","good girl gone bad","angels' share"],
+  "Zielinski & Rozen":["zielinski&rozen","zielinski & rozen","zielinski","z&r"],
+  "Maison Francis Kurkdjian":["maison francis kurkdjian","francis kurkdjian","mfk","baccarat rouge"],
+  "Escentric Molecules":["escentric molecules","molecule","escentric"],
+  "Penhaligon's":["penhaligon's","penhaligons"],
+  "Zadig & Voltaire":["zadig&voltaire","zadig & voltaire","zadig"],
+  "Alexandre.J":["alexandre.j","alexandre j","alexandre"],
+  "Carolina Herrera":["carolina herrera","оаэ carolina herrera","good girl","212","bad boy"],
+  "Jean Paul Gaultier":["jean paul gaultier","jpg","scandal","le male","le beau"],
+  "Parfums de Marly":["parfums de marly","pdm","delina","layton"],
+  "DKNY":["donna karan","dkny","be delicious"],
+  "Montblanc":["mont blanc","montblanc"],
+  "Davidoff":["davidoff","cool water"],
+  "Kenzo":["kenzo","aqua kenzo","flower by kenzo","l'eau par kenzo"],
+  "Chloe":["chloe","cloe"],
+  "Nasomatto":["nasomatto","black afgano"],
+  "Ajmal":["ajmal","amber wood ajmal"],
+  "Kajal":["kajal","almaz kajal"],
+  "Asdaaf":["asdaaf","ameerat al arab"],
+  "Genyum":["genyum","barcelona genyum"],
+  "Simimi":["simimi","blanc de sisa"],
+  "Liquides Imaginaires":["les liquides imaginaires","liquides imaginaires","blanche bete"],
+  "Ex Nihilo":["ex nihilo","blue talisman","fleur narcotique"],
+  "Essential Parfums":["essential parfums","bois imperial","bois impérial"],
+  "Vilhelm Parfumerie":["vilhelm","mango skin"],
+  "Louis Vuitton":["louis vuitton","pacific chill","imagination"],
+  "Rasasi":["rasasi","rumz al rasasi"],
+  "Vertus":["vertus","narcos`is","narcos'is"],
+  "Shaik":["shaik","opulent shaik"],
+  "HFC":["haute fragrance company","hfc"],
+  "Tom Ford":["tom ford","tf ","lost cherry","tobacco vanille","bitter peach","black orchid"],
+  "Tiziana Terenzi":["tiziana terenzi","kirke","andromeda","gumin"],
+  "Paco Rabanne":["paco rabanne","rabanne","1 million","invictus","lady million","olympea","phantom"],
+  "Van Cleef & Arpels":["van cleef"],
+  "Victoria's Secret":["victoria's secret","victoria secret","bombshell"],
+  "Versace":["versace","bright crystal","eros"],
+  "Orto Parisi":["orto parisi","megamare"]
+};
+const fold = s=>String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase()
+  .replace(/[«»"“”„]/g,"").replace(/[’`ʼ]/g,"'").replace(/\s*&\s*/g,"&").replace(/\s+/g," ").trim();
+const BRAND_PREF = Object.entries(BRAND_MAP).flatMap(([b,ps])=>ps.map(p=>[fold(p),b])).sort((x,y)=>y[0].length-x[0].length);
+const normName = n=>fold(n).replace(/^[^0-9a-zа-яё]+/,"");
+const BRAND_CACHE = {};
+function brandOf(name){
+  if (name in BRAND_CACHE) return BRAND_CACHE[name];
+  const n = normName(name);
+  let b = n;
+  for (const [p,br] of BRAND_PREF){
+    if (n.startsWith(p) && (p.endsWith(" ") || n.length===p.length || !/[0-9a-zа-яё]/.test(n[p.length]))){ b = fold(br); break; }
+  }
+  return BRAND_CACHE[name] = b;
+}
 function filtered(){
   const q = S.q.trim().toLowerCase();
   let a = ITEMS.filter(x=>(S.cat==="Главная"||x.cat===S.cat) && (!S.inStock||x.stock) && (!q||x.name.toLowerCase().includes(q)||String(x.id)===q));
   if (S.sort==="asc") a=[...a].sort((x,y)=>x.price-y.price);
   if (S.sort==="desc") a=[...a].sort((x,y)=>y.price-x.price);
-  /* Тестеры: по умолчанию по алфавиту бренда (название начинается с бренда); у мини-тестеров — внутри своего объёма */
-  if (!S.sort && /тестер/i.test(S.cat)) {
-    const key = it=>String(it.name).replace(/^[^0-9A-Za-zА-Яа-яЁё]+/,"");
+  /* Тестеры: по умолчанию по алфавиту БРЕНДА (YSL = Yves Saint Laurent, Bleu de Chanel = Chanel…); у мини-тестеров — внутри своего объёма */
+  if (!S.sort && (/тестер/i.test(S.cat) || S.cat===CONFIG.PROMO.cat)) {
+    const cmp = (p,q)=>p.localeCompare(q,"ru",{sensitivity:"base",numeric:true});
     const vo = {}; a.forEach(it=>{ if(!(it.vol in vo)) vo[it.vol]=Object.keys(vo).length; });
     const byVol = S.cat===CONFIG.MINI.cat;
-    a=[...a].sort((x,y)=>(byVol?vo[x.vol]-vo[y.vol]:0) || key(x).localeCompare(key(y),"ru",{sensitivity:"base",numeric:true}));
+    a=a.map(it=>[it,brandOf(it.name),normName(it.name)])
+      .sort((x,y)=>(byVol?vo[x[0].vol]-vo[y[0].vol]:0) || cmp(x[1],y[1]) || cmp(x[2],y[2])).map(x=>x[0]);
   }
   return a;
 }
