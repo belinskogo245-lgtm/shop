@@ -133,6 +133,10 @@ nav.bar svg{width:26px;height:26px}
 .promo .tiers b{display:block;font-size:15px}
 .ptag{font-size:11px;color:var(--muted);line-height:1.2}
 .ptag.m15{color:#b8871a;font-weight:700}
+.ptag.sale{color:#d4141c;font-weight:800}.ptag.sale s{color:var(--muted);font-weight:400;margin-right:4px}
+.vb.vsale{background:#d4141c}
+.promo.sale{background:linear-gradient(135deg,#d4141c,#8a0f14)}
+.promo.sale .big-t{font-size:22px;font-weight:900;display:block;line-height:1.1}
 .promo.m15p{background:linear-gradient(135deg,#d9a21b,#b8571a)}
 .promo.m15p .tiers div.on{color:#b8571a}
 .m15strip{display:block;width:100%;text-align:left;border:0;cursor:pointer}
@@ -198,7 +202,11 @@ const CONFIG = {
   // Мини-тестеры: одна вкладка, объёмы 15,5 / 12 / 10 мл выделены цветом и разбиты на группы
   MINI: { cat:"Тестеры 15,5 / 12 / 10 мл" },
   // Акция 15,5 мл: от FROM шт тестеров 15,5 мл в корзине (ароматы можно смешивать) — PRICE $ за шт
-  M15: { from:12, price:1.5 }
+  M15: { from:12, price:1.5 },
+  // Акция тестеры −50%: фиксированная цена из таблицы (колонка «Цена опт»), старая цена — по объёму (первое число в «Объём»).
+  // Наценка ниже опта на эти позиции не начисляется, но их сумма идёт в опт от 120 $.
+  SALE: { cat:"Акция тестеры −50%", old:{67:7,40:5,50:6},
+    groups:{67:"Тестеры 67 мл (Luxe Collection)",40:"Тестеры 40 мл (Champions Cup)",50:"Флаконы 50 мл с мешочком"} }
 };
 /* ===== ДАННЫЕ (демо: часть каталога). Формат: [арт, категория, название, объём, цена $, в наличии 1/0, фото] ===== */
 const DEMO = /*__DATA__*/[];
@@ -236,6 +244,7 @@ async function load(){
     }catch(e){ ITEMS = norm(store.get("catalog",DEMO)); toast(ITEMS.length?"Нет связи, показан сохранённый каталог":"Не удалось загрузить каталог. Проверьте интернет"); }
   } else ITEMS = norm(DEMO);
   CATS = ["Главная", ...new Set(ITEMS.map(x=>x.cat))];
+  if (CATS.includes(CONFIG.SALE.cat)) CATS = ["Главная", CONFIG.SALE.cat, ...CATS.filter(c=>c!=="Главная"&&c!==CONFIG.SALE.cat)];
   render();
   loadMe();
   // описания ароматов из desc.json (если в таблице колонка «Описание» пустая)
@@ -285,6 +294,16 @@ const kraftQty = ()=>Object.entries(S.cart).reduce((s,[id,n])=>{const it=ITEMS.f
 const isM15 = it=>it.cat===CONFIG.MINI.cat && /^15[,.]5/.test(String(it.vol).replace(/\s/g,""));
 const m15Qty = ()=>Object.entries(S.cart).reduce((s,[id,n])=>{const it=ITEMS.find(x=>String(x.id)===id);return s+(it&&isM15(it)?n:0)},0);
 const unitPrice = (it,kq,mq)=>isKraft(it)&&(kq??kraftQty())>=CONFIG.KRAFT.from?CONFIG.KRAFT.price:isM15(it)&&(mq??m15Qty())>=CONFIG.M15.from?CONFIG.M15.price:it.price;
+const isSale = it=>it.cat===CONFIG.SALE.cat;
+const saleVol = it=>parseInt(String(it.vol),10)||0;
+const saleOld = it=>CONFIG.SALE.old[saleVol(it)]||0;
+const saleTag = it=>{ const o=saleOld(it); return o?`<div class="ptag sale"><s>${money(o)}</s>−${Math.round(100-100*it.price/o)}%</div>`:`<div class="ptag sale">Акция</div>`; };
+function saleBox(strip){
+  const g=CONFIG.SALE.groups, rows=[67,40,50].filter(v=>ITEMS.some(it=>isSale(it)&&saleVol(it)==v))
+    .map(v=>{const it=ITEMS.find(x=>isSale(x)&&saleVol(x)==v);return `${esc(g[v]||v+" мл")}: <s>${money(CONFIG.SALE.old[v])}</s> → <b>${money(it.price)}</b>`;});
+  if(strip) return `<button class="promo sale m15strip" data-cat="${esc(CONFIG.SALE.cat)}"><span class="big-t">🔥 АКЦИЯ на тестеры до −50%</span><div style="margin-top:4px">${rows.join("<br>")}</div><div style="margin-top:4px">Смотреть →</div></button>`;
+  return `<div class="promo sale"><span class="big-t">🔥 АКЦИЯ до −50%</span><div style="margin-top:6px">${rows.join("<br>")}</div><div style="margin-top:6px">Цена за штуку, без наценки. Ароматы можно смешивать, сумма идёт в опт от ${CONFIG.MIN_WHOLESALE} $.</div></div>`;
+}
 const m15Tag = ()=>`<div class="ptag m15">🔥 от ${CONFIG.M15.from} шт — ${money(CONFIG.M15.price)}</div>`;
 function m15Box(strip){
   const q=m15Qty(), ok=q>=CONFIG.M15.from, F=CONFIG.M15.from, P=money(CONFIG.M15.price);
@@ -311,9 +330,10 @@ function promoBox(){
 }
 const volCls = v=>{ const t=String(v).replace(/\s/g,""); return /^15[,.]5/.test(t)?"v155":/^12/.test(t)?"v12":/^10/.test(t)?"v10":""; };
 const volBadge = it=>{ if(!it.vol) return ""; const k=it.cat===CONFIG.MINI.cat?volCls(it.vol):""; return `<span class="vol${k?" vb "+k:""}">${esc(it.vol)}</span>`; };
-const volHead = (it,prev)=>{ if(it.cat!==CONFIG.MINI.cat||S.cat!==CONFIG.MINI.cat||S.sort||S.q.trim()) return ""; if(prev&&prev.vol===it.vol) return ""; const k=volCls(it.vol); return `<div class="vgrp"><span class="vb ${k}">${esc(it.vol)}</span></div>`; };
+const volHead = (it,prev)=>{ if(isSale(it)&&S.cat===CONFIG.SALE.cat&&!S.sort&&!S.q.trim()){ if(prev&&saleVol(prev)===saleVol(it)) return ""; return `<div class="vgrp"><span class="vb vsale">${esc(CONFIG.SALE.groups[saleVol(it)]||it.vol)}</span></div>`; }
+  if(it.cat!==CONFIG.MINI.cat||S.cat!==CONFIG.MINI.cat||S.sort||S.q.trim()) return ""; if(prev&&prev.vol===it.vol) return ""; const k=volCls(it.vol); return `<div class="vgrp"><span class="vb ${k}">${esc(it.vol)}</span></div>`; };
 const isTester = it=>/тестер/i.test(it.cat) || /\b(25|30|35|40)\s*(мл|ml)/i.test(it.vol+" "+it.name);
-const TINT = {"Селектив / наборы":"#c9a227","Селектив и ниша":"#8e5bd8","Арабская парфюмерия":"#b8732e","Оригинальный парфюм AD":"#2f80ed","Тестеры 35 мл":"#d6457f","Тестеры 25 мл":"#e0637a","Тестер 100 мл Турция":"#2aa198","Тестеры 22 мл":"#e8833a","Селектив Премиум":"#1f9d55","Тестеры 58 мл":"#7b61ff","Тестеры 40 мл":"#a8743a","Акция 62 мл":"#ff2fa0","Арабские духи 30 мл":"#c0392b","Тестеры 15,5 / 12 / 10 мл":"#b8871a"};
+const TINT = {"Селектив / наборы":"#c9a227","Селектив и ниша":"#8e5bd8","Арабская парфюмерия":"#b8732e","Оригинальный парфюм AD":"#2f80ed","Тестеры 35 мл":"#d6457f","Тестеры 25 мл":"#e0637a","Тестер 100 мл Турция":"#2aa198","Тестеры 22 мл":"#e8833a","Селектив Премиум":"#1f9d55","Тестеры 58 мл":"#7b61ff","Тестеры 40 мл":"#a8743a","Акция 62 мл":"#ff2fa0","Акция тестеры −50%":"#d4141c","Арабские духи 30 мл":"#c0392b","Тестеры 15,5 / 12 / 10 мл":"#b8871a"};
 function bottle(it){
   const c = TINT[it.cat] || "#888";
   return `<svg viewBox="0 0 40 56" aria-hidden="true"><rect x="15" y="2" width="10" height="9" rx="2" fill="var(--fg)" opacity=".85"/><rect x="17" y="10" width="6" height="5" fill="var(--fg)" opacity=".5"/><rect x="5" y="15" width="30" height="39" rx="7" fill="${c}" opacity=".9"/><rect x="10" y="27" width="20" height="13" rx="2" fill="#fff" opacity=".85"/></svg>`;
@@ -389,10 +409,10 @@ function filtered(){
   if (S.sort==="asc") a=[...a].sort((x,y)=>x.price-y.price);
   if (S.sort==="desc") a=[...a].sort((x,y)=>y.price-x.price);
   /* Тестеры: по умолчанию по алфавиту БРЕНДА (YSL = Yves Saint Laurent, Bleu de Chanel = Chanel…); у мини-тестеров — внутри своего объёма */
-  if (!S.sort && (/тестер/i.test(S.cat) || S.cat===CONFIG.PROMO.cat)) {
+  if (!S.sort && (/тестер/i.test(S.cat) || S.cat===CONFIG.PROMO.cat || S.cat===CONFIG.SALE.cat)) {
     const cmp = (p,q)=>p.localeCompare(q,"ru",{sensitivity:"base",numeric:true});
     const vo = {}; a.forEach(it=>{ if(!(it.vol in vo)) vo[it.vol]=Object.keys(vo).length; });
-    const byVol = S.cat===CONFIG.MINI.cat;
+    const byVol = S.cat===CONFIG.MINI.cat||S.cat===CONFIG.SALE.cat;
     a=a.map(it=>[it,brandOf(it.name),normName(it.name)])
       .sort((x,y)=>(byVol?vo[x[0].vol]-vo[y[0].vol]:0) || cmp(x[1],y[1]) || cmp(x[2],y[2])).map(x=>x[0]);
   }
@@ -413,11 +433,11 @@ function viewHome(){
     <input id="q" type="search" placeholder="Поиск" value="${esc(S.q)}" aria-label="Поиск"></label>
     <button class="iconbtn" id="filt" aria-label="Фильтр" aria-pressed="${S.inStock||!!S.sort}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M6 12h12M10 18h4"/></svg></button></div>
   <div class="tabs" role="tablist">${CATS.map(c=>`<button class="tab" role="tab" data-cat="${esc(c)}" aria-selected="${c===S.cat}">${esc(c)}</button>`).join("")}</div>
-  ${S.cat===CONFIG.PROMO.cat?promoBox():""}${S.cat===CONFIG.KRAFT.cat?kraftBox():""}${S.cat===CONFIG.MINI.cat?m15Box():S.cat==="Главная"&&ITEMS.some(isM15)?m15Box(true):""}
+  ${S.cat===CONFIG.PROMO.cat?promoBox():""}${S.cat===CONFIG.KRAFT.cat?kraftBox():""}${S.cat===CONFIG.SALE.cat?saleBox():S.cat==="Главная"&&ITEMS.some(isSale)?saleBox(true):""}${S.cat===CONFIG.MINI.cat?m15Box():S.cat==="Главная"&&ITEMS.some(isM15)?m15Box(true):""}
   <div class="meta"><span>Товаров: ${a.length}</span><span>Опт от ${CONFIG.MIN_WHOLESALE} $</span></div>
   ${a.length?`<div class="grid">${part.map((it,i)=>`${volHead(it,part[i-1])}
     <div class="item"><div class="ph" data-open="${it.id}">${thumb(it)}${volBadge(it)}${it.imgs.length>1?`<span class="more-ph">${it.imgs.length} фото</span>`:""}</div>
-      <div class="price">${priceTxt(it)}</div>${S.rate?`<div class="rub">${rubTxt(priceNum(it))}</div>`:""}${isPromo(it)?`<div class="ptag">от 100 шт — ${money(CONFIG.PROMO.tiers[0].price)}</div>`:isKraft(it)?kraftTag():isM15(it)?m15Tag():""}<div class="art">арт. ${it.id}</div>
+      <div class="price">${priceTxt(it)}</div>${S.rate?`<div class="rub">${rubTxt(priceNum(it))}</div>`:""}${isPromo(it)?`<div class="ptag">от 100 шт — ${money(CONFIG.PROMO.tiers[0].price)}</div>`:isSale(it)?saleTag(it):isKraft(it)?kraftTag():isM15(it)?m15Tag():""}<div class="art">арт. ${it.id}</div>
       <div class="name" data-open="${it.id}">${esc(it.name)}</div>${addBtn(it)}</div>`).join("")}</div>
     ${a.length>S.shown?`<button class="more" id="more">Показать ещё ${Math.min(CONFIG.PAGE,a.length-S.shown)}</button>`:""}`
    :`<div class="empty">Ничего не нашлось. Попробуйте другое название или уберите фильтр.</div>`}
@@ -430,7 +450,7 @@ function calc(){
   const mq = usd.reduce((s,l)=>s+(isM15(l.it)?l.n:0),0);
   const base = usd.reduce((s,l)=>s+unitPrice(l.it,kq,mq)*l.n,0);
   const opt = base>=CONFIG.MIN_WHOLESALE;
-  const extra = opt?0:usd.reduce((s,l)=>s+(isTester(l.it)?CONFIG.SURCHARGE_TESTER:CONFIG.SURCHARGE_OTHER)*l.n,0);
+  const extra = opt?0:usd.reduce((s,l)=>s+(isSale(l.it)?0:isTester(l.it)?CONFIG.SURCHARGE_TESTER:CONFIG.SURCHARGE_OTHER)*l.n,0);
   const qty = lines.reduce((s,l)=>s+l.n,0);
   const qtyRub = rubL.reduce((s,l)=>s+l.n,0), rubUnit = qtyRub?tierOf(qtyRub).price:0;
   const totalRub = qtyRub*rubUnit;
@@ -445,10 +465,10 @@ function viewCart(){
   if (!c.lines.length) return `<h1>Корзина</h1><div class="empty">Корзина пуста<br><br><button class="big" style="width:auto;padding:12px 22px" data-go="home">Вернуться в каталог</button></div>`;
   return `<h1>Корзина</h1>
   <div class="list">${c.lines.map(l=>`<div class="row"><div class="mini">${bottle(l.it)}</div>
-    <div class="txt"><div>${esc(l.it.name)}${l.it.cat===CONFIG.MINI.cat&&l.it.vol?` · <b>${esc(l.it.vol)}</b>`:""}</div><div>арт. ${l.it.id} · ${isPromo(l.it)?`${money(c.rubUnit)} · акция 62 мл`:`${money(unitPrice(l.it,c.kq,c.mq))}${isKraft(l.it)?" · акция крафт":isM15(l.it)&&c.mq>=CONFIG.M15.from?" · акция 15,5 мл":""}${c.opt?"":` + ${money(isTester(l.it)?CONFIG.SURCHARGE_TESTER:CONFIG.SURCHARGE_OTHER)}`}`}</div></div>
+    <div class="txt"><div>${esc(l.it.name)}${l.it.cat===CONFIG.MINI.cat&&l.it.vol?` · <b>${esc(l.it.vol)}</b>`:""}</div><div>арт. ${l.it.id} · ${isPromo(l.it)?`${money(c.rubUnit)} · акция 62 мл`:`${money(unitPrice(l.it,c.kq,c.mq))}${isSale(l.it)?" · акция −50%":isKraft(l.it)?" · акция крафт":isM15(l.it)&&c.mq>=CONFIG.M15.from?" · акция 15,5 мл":""}${c.opt||isSale(l.it)?"":` + ${money(isTester(l.it)?CONFIG.SURCHARGE_TESTER:CONFIG.SURCHARGE_OTHER)}`}`}</div></div>
     <div class="stepper" style="margin:0"><button data-dec="${l.it.id}" aria-label="Меньше">−</button><span>${l.n}</span><button data-inc="${l.it.id}" aria-label="Больше">+</button></div></div>`).join("")}</div>
   ${c.qtyRub?promoBox():""}${c.kq?kraftBox():""}${c.mq?m15Box():""}
-  ${!c.usd.length?"":c.opt?`<div class="note ok">Сумма от ${CONFIG.MIN_WHOLESALE} $ — действуют оптовые цены.</div>`
+  ${!c.usd.some(l=>!isSale(l.it))?"":c.opt?`<div class="note ok">Сумма от ${CONFIG.MIN_WHOLESALE} $ — действуют оптовые цены.</div>`
    :`<div class="note warn">До оптовых цен не хватает ${money(CONFIG.MIN_WHOLESALE-c.usdBase)}. Сейчас считается с наценкой: тестеры 25/30/35/40 мл +${CONFIG.SURCHARGE_TESTER} $, остальное +${CONFIG.SURCHARGE_OTHER} $ за штуку. Доберите корзину или оформите по этой цене.</div>`}
   <div class="sum"><div><span>Товаров</span><span>${c.qty} шт.</span></div>
     ${c.usd.length?`<div><span>По оптовым ценам</span><span>${money(c.usdBase)}</span></div>`:""}
@@ -560,7 +580,7 @@ function openProduct(id){
     <button class="x" data-pdclose aria-label="Закрыть">×</button>
     <div class="gal" id="gal">${ims.map(u=>u?`<img src="${esc(u)}" alt="" loading="lazy">`:`<div class="one">${bottle(it)}</div>`).join("")}</div>
     ${ims.length>1?`<div class="dots">${ims.map((_,i)=>`<i class="${i?"":"on"}"></i>`).join("")}</div>`:""}
-    <div class="price">${priceTxt(it)}</div>${isPromo(it)?`<div class="ptag">от 100 шт — ${money(CONFIG.PROMO.tiers[0].price)}</div>`:isKraft(it)?kraftTag():isM15(it)?m15Tag():""}
+    <div class="price">${priceTxt(it)}</div>${isPromo(it)?`<div class="ptag">от 100 шт — ${money(CONFIG.PROMO.tiers[0].price)}</div>`:isSale(it)?saleTag(it):isKraft(it)?kraftTag():isM15(it)?m15Tag():""}
     <h2>${esc(it.name)}</h2><div class="art">арт. ${it.id}${it.vol?(it.cat===CONFIG.MINI.cat?` · <span class="vb ${volCls(it.vol)}" style="color:#fff;border-radius:8px;padding:2px 8px">${esc(it.vol)}</span>`:` · ${esc(it.vol)}`):""} · ${esc(it.cat)}</div>
     ${isKraft(it)?kraftBox():""}${isM15(it)?m15Box():""}
     ${it.desc?`<div class="desc">${esc(it.desc)}</div>`:`<div style="height:12px"></div>`}
@@ -608,7 +628,7 @@ async function submitOrder(e){
   const c=calc(), btn=e.target.querySelector("button[type=submit]");
   const order={ date:new Date().toLocaleString("ru-RU"), customer:{name:$("#f-name").value.trim(),contact:$("#f-phone").value.trim(),city:[$("#f-city").value.trim(),$("#f-tk").value].filter(Boolean).join(", "),
       note:[$("#f-fio").value.trim()?"Получатель: "+$("#f-fio").value.trim():"",$("#f-note").value.trim()].filter(Boolean).join(". "),tg:tgUser()},
-    items:c.lines.map(l=>isPromo(l.it)?({id:l.it.id,name:l.it.name+" (акция 62 мл)",cat:l.it.cat,price:c.rubUnit,qty:l.n}):({id:l.it.id,name:l.it.name+(l.it.cat===CONFIG.MINI.cat&&l.it.vol?" ("+l.it.vol+")":""),cat:l.it.cat,price:unitPrice(l.it,c.kq,c.mq),qty:l.n})), base:c.base, extra:c.extra, total:c.total, qty:c.qty, opt:c.opt,
+    items:c.lines.map(l=>isPromo(l.it)?({id:l.it.id,name:l.it.name+" (акция 62 мл)",cat:l.it.cat,price:c.rubUnit,qty:l.n}):({id:l.it.id,name:l.it.name+(isSale(l.it)?" ("+l.it.vol+", акция −50%)":l.it.cat===CONFIG.MINI.cat&&l.it.vol?" ("+l.it.vol+")":""),cat:l.it.cat,price:unitPrice(l.it,c.kq,c.mq),qty:l.n})), base:c.base, extra:c.extra, total:c.total, qty:c.qty, opt:c.opt,
     promoQty:c.qtyRub, promoUnit:c.rubUnit, sumText:sumTxt(c), disc:c.disc,
     gifts:giftSlots(c).map(sl=>{ const it=ITEMS.find(x=>String(x.id)===String(S.gp[sl.key])); return {type:sl.type,id:it?it.id:"",name:it?it.name:""}; }) };
   order.num=String(Date.now()).slice(-6);
