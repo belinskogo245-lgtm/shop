@@ -43,7 +43,7 @@ function doPost(e) {
         `\nИтого: ${round_(pr.total)} $` +
         (rate ? ` (≈ ${rub_(pr.total * rate)} ₽ по курсу ${rate})` : '') +
         (pr.notes.length ? '\n\n' + pr.notes.join('\n') : '');
-      sendTg_(prop_('ADMIN_CHAT_ID'), text, orderKb_(oid));
+      sendAdmin_(text, orderKb_(oid));
     } finally {
       lock.releaseLock();
     }

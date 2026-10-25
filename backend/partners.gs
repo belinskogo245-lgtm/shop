@@ -212,8 +212,8 @@ function partnersText_() {
 
 // «Визитка» — картинка с двумя настоящими кнопками. Её можно переслать в канал или клиенту — кнопки сохраняются.
 const CARD_IMG = 'https://belinskogo245-lgtm.github.io/shop/card.jpg';
-function sendCard_(chat) {
-  return tgCall_('sendPhoto', {
+function sendCard_(chat, call) {
+  return (call || tgCall_)('sendPhoto', {
     chat_id: chat, photo: CARD_IMG,
     caption: '🛍 Оптовый каталог парфюмерии\nОтправка по всей России 📦\n\nНажмите кнопку ниже 👇',
     reply_markup: { inline_keyboard: [
@@ -225,75 +225,83 @@ function sendCard_(chat) {
 
 const BOT_HELP = 'Команды:\n• визитка — картинка с кнопками каталога (перешлите её в канал или клиенту)\n• визитка @канал — сразу опубликовать в канал (бот должен быть админом канала)\n• курс 90 — поменять курс ₽/$ в мини-аппе\n• привязать 15 @ivan — привязать клиента из заказа №15 к партнёру (если он пришёл не по ссылке)\n• партнёр @ivan — разрешить приглашать друзей тому, у кого ещё не было оплаченного заказа в мини-аппе\n• партнёры — список партнёров';
 
-function handleUpdate_(u) {
+function handleUpdate_(u, call, isAdminBot) {
+  call = call || tgCall_;
+  const send = call === tgCall_ ? sendTg_ : (c, t, k) => sendVia_(call, c, t, k);
   const admin = String(prop_('ADMIN_CHAT_ID'));
   const P = PropertiesService.getScriptProperties();
   if (u.callback_query) {
     const q = u.callback_query, d = String(q.data || '');
-    if (String(q.from.id) !== admin) { tgCall_('answerCallbackQuery', { callback_query_id: q.id, text: 'Только для продавца' }); return; }
+    if (String(q.from.id) !== admin) { call('answerCallbackQuery', { callback_query_id: q.id, text: 'Только для продавца' }); return; }
     if (d.indexOf('paid:') === 0) {
       const oid = d.slice(5);
       const res = markPaid_(oid);
-      tgCall_('answerCallbackQuery', { callback_query_id: q.id, text: res.slice(0, 190), show_alert: true });
-      if (q.message) tgCall_('editMessageReplyMarkup', { chat_id: q.message.chat.id, message_id: q.message.message_id, reply_markup: orderKb_(oid, true) });
-    } else tgCall_('answerCallbackQuery', { callback_query_id: q.id });
+      call('answerCallbackQuery', { callback_query_id: q.id, text: res.slice(0, 190), show_alert: true });
+      if (q.message) call('editMessageReplyMarkup', { chat_id: q.message.chat.id, message_id: q.message.message_id, reply_markup: orderKb_(oid, true) });
+    } else call('answerCallbackQuery', { callback_query_id: q.id });
     return;
   }
   const m = u.message;
   if (!m || !m.text) return;
   const t = m.text.trim(), chat = m.chat.id;
   if (String(m.from.id) !== admin) {
-    if (/^\/start/.test(t)) sendTg_(chat, 'Добро пожаловать! Каталог и заказ — по кнопке ниже 👇', { inline_keyboard: [[{ text: '🛍 Открыть каталог', web_app: { url: CATALOG_URL } }]] });
+    if (isAdminBot) return; // бот для заказов отвечает только вам
+    if (/^\/start/.test(t)) send(chat, 'Добро пожаловать! Каталог и заказ — по кнопке ниже 👇', { inline_keyboard: [[{ text: '🛍 Открыть каталог', web_app: { url: CATALOG_URL } }]] });
     return;
   }
   let mm;
   if ((mm = t.match(/^\/?курс\s*[:=]?\s*(\d+(?:[.,]\d+)?)/i))) {
     const rate = Number(mm[1].replace(',', '.'));
-    if (!(rate >= 20 && rate <= 500)) { sendTg_(chat, 'Не понял курс. Пример: курс 90'); return; }
+    if (!(rate >= 20 && rate <= 500)) { send(chat, 'Не понял курс. Пример: курс 90'); return; }
     P.setProperty('RATE', String(rate));
     P.setProperty('RATE_DATE', Utilities.formatDate(new Date(), POST_TZ, 'dd.MM.yyyy'));
-    sendTg_(chat, `✅ Курс обновлён: ${rate} ₽/$. Цены в рублях в мини-аппе пересчитаны (клиенты увидят при следующем открытии).`);
+    send(chat, `✅ Курс обновлён: ${rate} ₽/$. Цены в рублях в мини-аппе пересчитаны (клиенты увидят при следующем открытии).`);
     return;
   }
-  if ((mm = t.match(/^\/?привязать\s+№?\s*(\d+)\s+(\S+)/i))) { sendTg_(chat, bindCmd_(mm[1], mm[2])); return; }
+  if ((mm = t.match(/^\/?привязать\s+№?\s*(\d+)\s+(\S+)/i))) { send(chat, bindCmd_(mm[1], mm[2])); return; }
   if ((mm = t.match(/^\/?партн[её]р\s+@?([A-Za-z0-9_]{3,})\s*$/i))) {
     const l = allowList_(), nick = '@' + mm[1].toLowerCase();
     if (l.indexOf(nick) < 0) l.push(nick);
     P.setProperty('ALLOW_INVITE', JSON.stringify(l));
-    sendTg_(chat, `✅ ${nick} может приглашать друзей. Кнопка «Пригласить друга» появится у него в профиле мини-аппа.`);
+    send(chat, `✅ ${nick} может приглашать друзей. Кнопка «Пригласить друга» появится у него в профиле мини-аппа.`);
     return;
   }
-  if (/^\/?партн[её]ры\s*$/i.test(t)) { sendTg_(chat, partnersText_()); return; }
+  if (/^\/?партн[её]ры\s*$/i.test(t)) { send(chat, partnersText_()); return; }
   if ((mm = t.match(/^\/?визитка(?:\s+(@[A-Za-z0-9_]{4,}))?\s*$/i))) {
-    const r = sendCard_(mm[1] || chat);
-    if (mm[1]) sendTg_(chat, r && r.ok === false ? '❌ Не получилось опубликовать в ' + mm[1] + ': сделайте бота админом канала с правом публикации.' : '✅ Визитка опубликована в ' + mm[1]);
+    const r = mm[1] ? sendCard_(mm[1]) : sendCard_(chat, call);
+    if (mm[1]) send(chat, r && r.ok === false ? '❌ Не получилось опубликовать в ' + mm[1] + ': сделайте бота админом канала с правом публикации.' : '✅ Визитка опубликована в ' + mm[1]);
     return;
   }
-  if (/^\/?(start|help|помощь)/i.test(t)) sendTg_(chat, BOT_HELP);
+  if (/^\/?(start|help|помощь)/i.test(t)) send(chat, BOT_HELP);
 }
 
 function pollBot() {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(5000)) return;
   try {
-    const P = PropertiesService.getScriptProperties();
-    const off = Number(P.getProperty('BOT_OFFSET') || 0);
-    const r = UrlFetchApp.fetch('https://api.telegram.org/bot' + prop_('BOT_TOKEN') + '/getUpdates?timeout=0&offset=' + off +
-      '&allowed_updates=' + encodeURIComponent('["message","callback_query"]'), { muteHttpExceptions: true });
-    const j = JSON.parse(r.getContentText());
-    if (!j.ok) { Logger.log(j.description); return; }
-    let next = off;
-    j.result.forEach(up => {
-      next = up.update_id + 1;
-      P.setProperty('BOT_OFFSET', String(next));
-      try { handleUpdate_(up); } catch (e) { Logger.log('Ошибка: ' + e); }
-    });
+    pollOne_(prop_('BOT_TOKEN'), 'BOT_OFFSET', tgCall_, false);
+    const at = adminToken_();
+    if (at) pollOne_(at, 'ADMIN_BOT_OFFSET', (m, p) => tgApi_(at, m, p), true);
   } finally { lock.releaseLock(); }
+}
+
+function pollOne_(token, offKey, call, isAdminBot) {
+  const P = PropertiesService.getScriptProperties();
+  const off = Number(P.getProperty(offKey) || 0);
+  const r = UrlFetchApp.fetch('https://api.telegram.org/bot' + token + '/getUpdates?timeout=0&offset=' + off +
+    '&allowed_updates=' + encodeURIComponent('["message","callback_query"]'), { muteHttpExceptions: true });
+  const j = JSON.parse(r.getContentText());
+  if (!j.ok) { Logger.log(offKey + ': ' + j.description); return; }
+  j.result.forEach(up => {
+    P.setProperty(offKey, String(up.update_id + 1));
+    try { handleUpdate_(up, call, isAdminBot); } catch (e) { Logger.log('Ошибка: ' + e); }
+  });
 }
 
 // Запустить один раз: бот начинает принимать команды и кнопку «Оплачен» (проверка каждую минуту)
 function setupBot() {
   tgCall_('deleteWebhook', {});
+  if (adminToken_()) tgApi_(adminToken_(), 'deleteWebhook', {});
   ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'pollBot').forEach(t => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('pollBot').timeBased().everyMinutes(1).create();
   clientsSheet_();
