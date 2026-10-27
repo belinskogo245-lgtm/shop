@@ -143,6 +143,23 @@ nav.bar svg{width:26px;height:26px}
 .rub{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
 .note.gift{background:var(--card);color:var(--fg);border:1.5px solid #ff2fa0}
 .note.gift b{color:#ff2fa0}
+/* Акция «СПА у тебя дома» — подарок к заказу от 120 $ */
+.spa{display:block;width:100%;text-align:left;border:0;cursor:pointer;background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;border-radius:var(--r);padding:12px 14px;margin:0 0 12px;font-size:14px;line-height:1.35}
+.spa .spa-t{font-size:20px;font-weight:900;display:block;line-height:1.15;margin-bottom:4px}
+.spa .spa-row{display:flex;gap:10px;align-items:center}
+.spa .spa-ims{display:flex;gap:6px;flex:none}
+.spa .spa-ims img{width:54px;height:68px;object-fit:cover;border-radius:10px;border:2px solid rgb(255 255 255 / .7)}
+.spa .spa-go{display:inline-block;margin-top:6px;font-weight:700;text-decoration:underline}
+.spa-pick{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.spa-pick button{border:2px solid var(--line);background:var(--card);color:var(--fg);border-radius:14px;padding:6px;font-size:13px;line-height:1.25;cursor:pointer}
+.spa-pick button[aria-pressed="true"]{border-color:#ec4899;box-shadow:0 0 0 2px #ec4899 inset}
+.spa-pick img{width:100%;aspect-ratio:4/5;object-fit:cover;border-radius:10px;display:block;margin-bottom:6px}
+.spa-bar{height:10px;border-radius:5px;background:var(--line);overflow:hidden;margin-top:8px}
+.spa-bar i{display:block;height:100%;background:linear-gradient(90deg,#8b5cf6,#ec4899)}
+.spa-sheet{max-height:88vh;overflow:auto}
+.spa-sheet .gal2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:6px 0 10px}
+.spa-sheet .gal2 img{width:100%;border-radius:12px;display:block}
+.spa-sheet p{margin:6px 0}
 .note.gift select{width:100%;margin-top:6px;padding:10px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font:inherit}
 .note.gift label{display:block;margin-top:10px;font-size:13px;color:var(--muted)}
 .inv{background:var(--card);border-radius:var(--r);padding:14px 16px;margin-top:14px}
@@ -209,7 +226,12 @@ const CONFIG = {
     groups:{67:"Тестеры 67 мл (Luxe Collection)",40:"Тестеры 40 мл (Champions Cup)",50:"Флаконы 50 мл с мешочком"} },
   // Narcotique Rose 50 мл, суперстойкость: скидка −50%, цена из таблицы (5,5 $), старая цена OLD. Условия как у акции: в заказе от 120 $
   NARCO: [ { cat:"Narcotique Rose 50 мл −50%", old:11, title:"Narcotique Rose 50 мл" },
-           { cat:"Narcotique Rose 100 мл — акция", old:14, title:"Narcotique Rose 100 мл" } ]
+           { cat:"Narcotique Rose 100 мл — акция", old:14, title:"Narcotique Rose 100 мл" } ],
+  // Акция «СПА у тебя дома»: к заказу от MIN $ — подарок на выбор. Время — по Красноярску (UTC+7).
+  // До START в мини-аппе висит анонс «стартует завтра», с START до END — подарок выбирается в корзине, после END акция исчезает.
+  SPA: { start:"2026-10-28T00:00:00+07:00", end:"2026-10-31T00:00:00+07:00", min:120, endTxt:"пятницы, 30 октября", startTxt:"Со среды, 28 октября",
+    items:[ {id:"SPA-LAV", name:"СПА-скраб BIOAQUA «Лаванда», 430 г", short:"Лаванда", img:"photos/spa-lavender.jpg"},
+            {id:"SPA-PCH", name:"СПА-скраб BIOAQUA «Медовый персик», 430 г", short:"Медовый персик", img:"photos/spa-peach.jpg"} ] }
 };
 /* ===== ДАННЫЕ (демо: часть каталога). Формат: [арт, категория, название, объём, цена $, в наличии 1/0, фото] ===== */
 const DEMO = /*__DATA__*/[];
@@ -287,6 +309,45 @@ function giftBox(c){
     ${slots.map(sl=>`<label>${esc(sl.label)}${list.length?`<select data-gift="${sl.key}" aria-label="${esc(sl.label)}">
       <option value="">Выберите аромат…</option>${list.map(it=>`<option value="${esc(it.id)}" ${String(S.gp[sl.key])===String(it.id)?"selected":""}>${esc(it.name)}</option>`).join("")}</select>`:`<div>Аромат уточним при сборке заказа</div>`}</label>`).join("")}
     <div style="margin-top:8px;font-size:12px;color:var(--muted)">Подарки идут бесплатно вместе с заказом. Акция в тестовом режиме: если что-то не отобразилось, напишите нам — начислим вручную.</div></div>`;
+}
+/* ===== Акция «СПА у тебя дома» ===== */
+function spaState(){ const n=Date.now(), s=CONFIG.SPA; if(!s) return "off"; if(n<Date.parse(s.start)) return "soon"; if(n<Date.parse(s.end)) return "on"; return "off"; }
+const spaOk = c=>spaState()==="on" && !c.saleBlock && c.base>=CONFIG.SPA.min;
+const spaPicked = ()=>CONFIG.SPA.items.find(x=>x.id===S.gp.spa);
+function spaBanner(){
+  const st=spaState(); if(st==="off") return ""; const s=CONFIG.SPA;
+  return `<button class="spa" data-spa><div class="spa-row"><div class="spa-ims">${s.items.map(x=>`<img src="${esc(x.img)}" alt="">`).join("")}</div>
+    <div><span class="spa-t">🎁 СПА у тебя дома — в подарок!</span>
+    ${st==="soon"?`<b>${s.startTxt} до ${s.endTxt}</b> к каждому заказу от ${s.min} $ — солевой СПА-скраб с коллагеном бесплатно.`
+      :`<b>До ${s.endTxt}</b> к каждому заказу от ${s.min} $ — солевой СПА-скраб с коллагеном бесплатно. Аромат на выбор.`}
+    <span class="spa-go">Подробнее →</span></div></div></button>`;
+}
+function spaCart(c){
+  const st=spaState(); if(st==="off") return ""; const s=CONFIG.SPA;
+  if(st==="soon") return `<div class="note gift"><b>🎁 Завтра стартует акция!</b> ${s.startTxt} до ${s.endTxt} к каждому заказу от ${s.min} $ — СПА-скраб BIOAQUA 430 г в подарок.</div>`;
+  if(!spaOk(c)){ const left=Math.max(0,s.min-c.base), p=Math.min(100,Math.round(c.base/s.min*100));
+    return `<div class="note gift"><b>🎁 До подарка осталось ${money(left)}</b><br>Наберите заказ от ${s.min} $ — и выберите СПА-скраб BIOAQUA 430 г бесплатно.<div class="spa-bar"><i style="width:${p}%"></i></div></div>`; }
+  return `<div class="note gift"><b>🎁 Ваш подарок — выберите аромат:</b>
+    <div class="spa-pick">${s.items.map(x=>`<button type="button" data-spapick="${x.id}" aria-pressed="${S.gp.spa===x.id}"><img src="${esc(x.img)}" alt="">${esc(x.short)}${S.gp.spa===x.id?" ✓":""}</button>`).join("")}</div>
+    <div style="margin-top:8px;font-size:12px;color:var(--muted)">Подарок бесплатно, кладём в коробку вместе с заказом. Акция до ${s.endTxt}.</div></div>`;
+}
+function spaSheet(){
+  if(document.querySelector(".sheet:not(#pd)")) return; const s=CONFIG.SPA, st=spaState();
+  const sh=document.createElement("div"); sh.className="sheet";
+  sh.innerHTML=`<div role="dialog" aria-label="Подарок СПА у тебя дома" class="spa-sheet">
+    <h2 style="margin:0 0 4px">🎁 СПА у тебя дома — бесплатно</h2>
+    <p><b>${st==="soon"?`${s.startTxt} до ${s.endTxt}`:`Только до ${s.endTxt}`}: к каждому заказу от ${s.min} $ — подарок на выбор.</b></p>
+    <div class="gal2">${s.items.map(x=>`<img src="${esc(x.img)}" alt="${esc(x.name)}">`).join("")}</div>
+    <p>Солевой скраб-гель BIOAQUA с коллагеном, большой флакон 430 г. Три в одном: скраб, гель для душа и соль для ванны.</p>
+    <p>✨ Морская соль мягко отшелушивает и массирует — кожа гладкая, как после салона.<br>
+    💧 Коллаген (сырьё из Кореи) + гиалуроновая кислота + аминокислоты шёлка — кожа не стягивается и не сохнет.<br>
+    🌸 Аромат остаётся на коже и наполняет ванную.</p>
+    <p>💜 <b>Лаванда</b> — расслабиться вечером и снять усталость.<br>🍑 <b>Медовый персик</b> — сладкий сочный аромат, бодрит с утра.</p>
+    <p>🚿 В душе — как скраб · 🛁 В ванне — как соль · 🦶 Для ванночек для ног</p>
+    <p style="font-size:12px;color:var(--muted)">Произведено на фабрике в Китае (Гуанчжоу), коллаген — корейское сырьё. Детям до 3 лет не применять. Один подарок на заказ, сумма заказа — от ${s.min} $ любыми товарами.</p>
+    <button class="big" data-close>${st==="on"?"Собрать заказ":"Понятно"}</button></div>`;
+  document.body.appendChild(sh);
+  sh.addEventListener("click",e=>{ if(e.target===sh||e.target.closest("[data-close]")) sh.remove(); });
 }
 const priceNum = it=>(isKraft(it)||isM15(it))?unitPrice(it):isPromo(it)?tierOf(Math.max(1,promoQty())).price:it.price;
 const isPromo = it=>it.cat===CONFIG.PROMO.cat;
@@ -441,7 +502,7 @@ function viewHome(){
     <input id="q" type="search" placeholder="Поиск" value="${esc(S.q)}" aria-label="Поиск"></label>
     <button class="iconbtn" id="filt" aria-label="Фильтр" aria-pressed="${S.inStock||!!S.sort}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M6 12h12M10 18h4"/></svg></button></div>
   <div class="tabs" role="tablist">${CATS.map(c=>`<button class="tab" role="tab" data-cat="${esc(c)}" aria-selected="${c===S.cat}">${esc(c)}</button>`).join("")}</div>
-  ${S.cat===CONFIG.PROMO.cat?promoBox():""}${S.cat===CONFIG.KRAFT.cat?kraftBox():""}${narcoOf(S.cat)?narcoBox():""}${S.cat===CONFIG.SALE.cat?saleBox():S.cat==="Главная"&&ITEMS.some(isSale)?saleBox(true):""}${S.cat===CONFIG.MINI.cat?m15Box():S.cat==="Главная"&&ITEMS.some(isM15)?m15Box(true):""}
+  ${S.cat==="Главная"?spaBanner():""}${S.cat===CONFIG.PROMO.cat?promoBox():""}${S.cat===CONFIG.KRAFT.cat?kraftBox():""}${narcoOf(S.cat)?narcoBox():""}${S.cat===CONFIG.SALE.cat?saleBox():S.cat==="Главная"&&ITEMS.some(isSale)?saleBox(true):""}${S.cat===CONFIG.MINI.cat?m15Box():S.cat==="Главная"&&ITEMS.some(isM15)?m15Box(true):""}
   <div class="meta"><span>Товаров: ${a.length}</span><span>Опт от ${CONFIG.MIN_WHOLESALE} $</span></div>
   ${a.length?`<div class="grid">${part.map((it,i)=>`${volHead(it,part[i-1])}
     <div class="item"><div class="ph" data-open="${it.id}">${thumb(it)}${volBadge(it)}${it.imgs.length>1?`<span class="more-ph">${it.imgs.length} фото</span>`:""}</div>
@@ -485,10 +546,11 @@ function viewCart(){
     ${c.extra?`<div><span>Наценка ниже опта</span><span>+ ${money(c.extra)}</span></div>`:""}
     ${c.qtyRub?`<div><span>Акция 62 мл: ${c.qtyRub} шт × ${money(c.rubUnit)}</span><span>${money(c.totalRub)}</span></div>`:""}
     ${c.disc?`<div><span>Ваша скидка партнёра ${S.me.pct||3}%</span><span>− ${money(c.disc)}</span></div>`:""}
+    ${spaOk(c)?`<div><span>🎁 Подарок: СПА-скраб${spaPicked()?" «"+esc(spaPicked().short)+"»":""}</span><span>1 шт. · 0 $</span></div>`:""}
     ${giftSlots(c).length?`<div><span>Подарки: флакон 62 мл</span><span>${giftSlots(c).length} шт. · 0 $</span></div>`:""}
     <div class="total"><span>Итого</span><span>${sumTxt(c)}</span></div>
     ${S.rate?`<div style="color:var(--muted)"><span>В рублях по курсу ${S.rate}</span><span>${rubTxt(c.total)}</span></div>`:""}</div>
-  ${giftBox(c)}
+  ${spaCart(c)}${giftBox(c)}
   <form class="form" id="order">
     <label for="f-name">Имя *<input id="f-name" required value="${esc(CUST.name||tgUser().name)}"></label>
     <label for="f-phone">${tgUser().id?"Телефон или Telegram *":"Телефон (WhatsApp / Макс) или Telegram *"}<input id="f-phone" required placeholder="${tgUser().id?"+7… или @ник":"+7…"}" value="${esc(CUST.contact||(tgUser().user?"@"+tgUser().user:""))}"></label>
@@ -662,9 +724,11 @@ async function submitOrder(e){
   e.preventDefault();
   const c=calc(), btn=e.target.querySelector("button[type=submit]");
   if(c.saleBlock||!btn){ toast(`Акция действует при заказе от ${CONFIG.MIN_WHOLESALE} $. Добавьте ещё товаров`); return; }
+  if(spaOk(c)&&!spaPicked()){ toast("Выберите аромат подарка — Лаванда или Персик"); const pk=document.querySelector(".spa-pick"); if(pk) pk.scrollIntoView({behavior:"smooth",block:"center"}); return; }
+  const spa=spaOk(c)?spaPicked():null;
   const order={ date:new Date().toLocaleString("ru-RU"), customer:{name:$("#f-name").value.trim(),contact:$("#f-phone").value.trim(),city:[$("#f-city").value.trim(),$("#f-tk").value].filter(Boolean).join(", "),
-      note:[$("#f-fio").value.trim()?"Получатель: "+$("#f-fio").value.trim():"",$("#f-note").value.trim()].filter(Boolean).join(". "),tg:tgUser()},
-    items:c.lines.map(l=>isPromo(l.it)?({id:l.it.id,name:l.it.name+" (акция 62 мл)",cat:l.it.cat,price:c.rubUnit,qty:l.n}):({id:l.it.id,name:l.it.name+(isSale(l.it)?" ("+l.it.vol+", акция −"+salePct(l.it)+"%)":l.it.cat===CONFIG.MINI.cat&&l.it.vol?" ("+l.it.vol+")":""),cat:l.it.cat,price:unitPrice(l.it,c.kq,c.mq),qty:l.n})), base:c.base, extra:c.extra, total:c.total, qty:c.qty, opt:c.opt,
+      note:[spa?"🎁 ПОДАРОК: "+spa.name:"",$("#f-fio").value.trim()?"Получатель: "+$("#f-fio").value.trim():"",$("#f-note").value.trim()].filter(Boolean).join(". "),tg:tgUser()},
+    items:c.lines.map(l=>isPromo(l.it)?({id:l.it.id,name:l.it.name+" (акция 62 мл)",cat:l.it.cat,price:c.rubUnit,qty:l.n}):({id:l.it.id,name:l.it.name+(isSale(l.it)?" ("+l.it.vol+", акция −"+salePct(l.it)+"%)":l.it.cat===CONFIG.MINI.cat&&l.it.vol?" ("+l.it.vol+")":""),cat:l.it.cat,price:unitPrice(l.it,c.kq,c.mq),qty:l.n})).concat(spa?[{id:spa.id,name:"🎁 ПОДАРОК (акция СПА): "+spa.name,cat:"Подарок",price:0,qty:1}]:[]), base:c.base, extra:c.extra, total:c.total, qty:c.qty, opt:c.opt,
     promoQty:c.qtyRub, promoUnit:c.rubUnit, sumText:sumTxt(c), disc:c.disc,
     gifts:giftSlots(c).map(sl=>{ const it=ITEMS.find(x=>String(x.id)===String(S.gp[sl.key])); return {type:sl.type,id:it?it.id:"",name:it?it.name:""}; }) };
   order.num=String(Date.now()).slice(-6);
@@ -699,6 +763,7 @@ document.addEventListener("click",e=>{
   else if(t.id==="more"){ S.shown+=CONFIG.PAGE; render(); }
   else if(t.id==="filt"){ openFilter(); }
 });
+document.addEventListener("click",e=>{ const sp=e.target.closest("[data-spapick]"); if(sp){ S.gp.spa=sp.dataset.spapick; store.set("gp",S.gp); haptic(); render(); return; } if(e.target.closest("[data-spa]")) spaSheet(); });
 document.addEventListener("change",e=>{ const g=e.target.closest("[data-gift]"); if(g){ S.gp[g.dataset.gift]=g.value; store.set("gp",S.gp); } });
 $("#app").innerHTML='<div class="empty">Загружаем каталог…</div>';
 load();
