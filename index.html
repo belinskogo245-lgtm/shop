@@ -206,7 +206,9 @@ const CONFIG = {
   // Акция тестеры −50%: фиксированная цена из таблицы (колонка «Цена опт»), старая цена — по объёму (первое число в «Объём»).
   // Наценка ниже опта на эти позиции не начисляется, но их сумма идёт в опт от 120 $.
   SALE: { cat:"Акция тестеры −50%", old:{67:7,40:5,50:6},
-    groups:{67:"Тестеры 67 мл (Luxe Collection)",40:"Тестеры 40 мл (Champions Cup)",50:"Флаконы 50 мл с мешочком"} }
+    groups:{67:"Тестеры 67 мл (Luxe Collection)",40:"Тестеры 40 мл (Champions Cup)",50:"Флаконы 50 мл с мешочком"} },
+  // Narcotique Rose 50 мл, суперстойкость: скидка −50%, цена из таблицы (5,5 $), старая цена OLD. Условия как у акции: в заказе от 120 $
+  NARCO: { cat:"Narcotique Rose 50 мл −50%", old:11 }
 };
 /* ===== ДАННЫЕ (демо: часть каталога). Формат: [арт, категория, название, объём, цена $, в наличии 1/0, фото] ===== */
 const DEMO = /*__DATA__*/[];
@@ -244,7 +246,8 @@ async function load(){
     }catch(e){ ITEMS = norm(store.get("catalog",DEMO)); toast(ITEMS.length?"Нет связи, показан сохранённый каталог":"Не удалось загрузить каталог. Проверьте интернет"); }
   } else ITEMS = norm(DEMO);
   CATS = ["Главная", ...new Set(ITEMS.map(x=>x.cat))];
-  if (CATS.includes(CONFIG.SALE.cat)) CATS = ["Главная", CONFIG.SALE.cat, ...CATS.filter(c=>c!=="Главная"&&c!==CONFIG.SALE.cat)];
+  const top=[CONFIG.NARCO.cat,CONFIG.SALE.cat].filter(c=>CATS.includes(c));
+  CATS = ["Главная", ...top, ...CATS.filter(c=>c!=="Главная"&&!top.includes(c))];
   render();
   loadMe();
   // описания ароматов из desc.json (если в таблице колонка «Описание» пустая)
@@ -294,13 +297,15 @@ const kraftQty = ()=>Object.entries(S.cart).reduce((s,[id,n])=>{const it=ITEMS.f
 const isM15 = it=>it.cat===CONFIG.MINI.cat && /^15[,.]5/.test(String(it.vol).replace(/\s/g,""));
 const m15Qty = ()=>Object.entries(S.cart).reduce((s,[id,n])=>{const it=ITEMS.find(x=>String(x.id)===id);return s+(it&&isM15(it)?n:0)},0);
 const unitPrice = (it,kq,mq)=>isKraft(it)&&(kq??kraftQty())>=CONFIG.KRAFT.from?CONFIG.KRAFT.price:isM15(it)&&(mq??m15Qty())>=CONFIG.M15.from?CONFIG.M15.price:it.price;
-const isSale = it=>it.cat===CONFIG.SALE.cat;
+const isNarco = it=>it.cat===CONFIG.NARCO.cat;
+const isSale = it=>it.cat===CONFIG.SALE.cat||isNarco(it);
 const saleVol = it=>parseInt(String(it.vol),10)||0;
-const saleOld = it=>CONFIG.SALE.old[saleVol(it)]||0;
+const saleOld = it=>isNarco(it)?CONFIG.NARCO.old:(CONFIG.SALE.old[saleVol(it)]||0);
 const saleTag = it=>{ const o=saleOld(it); return o?`<div class="ptag sale"><s>${money(o)}</s>−${Math.round(100-100*it.price/o)}%</div>`:`<div class="ptag sale">Акция</div>`; };
+function narcoBox(){ const it=ITEMS.find(isNarco); return `<div class="promo sale"><span class="big-t">🔥 Narcotique Rose 50 мл — −50%</span><div style="margin-top:6px">Суперстойкость. <s>${money(CONFIG.NARCO.old)}</s> → <b>${money(it?it.price:5.5)}</b> за флакон.</div><div style="margin-top:6px"><b>Акция действует при заказе от ${CONFIG.MIN_WHOLESALE} $</b> — сумму можно добрать любыми товарами из каталога.</div></div>`; }
 function saleBox(strip){
-  const g=CONFIG.SALE.groups, rows=[67,40,50].filter(v=>ITEMS.some(it=>isSale(it)&&saleVol(it)==v))
-    .map(v=>{const it=ITEMS.find(x=>isSale(x)&&saleVol(x)==v);return `${esc(g[v]||v+" мл")}: <s>${money(CONFIG.SALE.old[v])}</s> → <b>${money(it.price)}</b>`;});
+  const g=CONFIG.SALE.groups, sOnly=it=>it.cat===CONFIG.SALE.cat, rows=[67,40,50].filter(v=>ITEMS.some(it=>sOnly(it)&&saleVol(it)==v))
+    .map(v=>{const it=ITEMS.find(x=>sOnly(x)&&saleVol(x)==v);return `${esc(g[v]||v+" мл")}: <s>${money(CONFIG.SALE.old[v])}</s> → <b>${money(it.price)}</b>`;});
   if(strip) return `<button class="promo sale m15strip" data-cat="${esc(CONFIG.SALE.cat)}"><span class="big-t">🔥 АКЦИЯ на тестеры до −50%</span><div style="margin-top:4px">${rows.join("<br>")}</div><div style="margin-top:4px">При заказе от ${CONFIG.MIN_WHOLESALE} $ (любые товары). Смотреть →</div></button>`;
   return `<div class="promo sale"><span class="big-t">🔥 АКЦИЯ до −50%</span><div style="margin-top:6px">${rows.join("<br>")}</div><div style="margin-top:6px"><b>Акция действует при заказе от ${CONFIG.MIN_WHOLESALE} $</b> — сумму можно добрать любыми товарами из каталога. Поштучно меньше чем на ${CONFIG.MIN_WHOLESALE} $ акционные позиции не продаются.</div></div>`;
 }
@@ -433,7 +438,7 @@ function viewHome(){
     <input id="q" type="search" placeholder="Поиск" value="${esc(S.q)}" aria-label="Поиск"></label>
     <button class="iconbtn" id="filt" aria-label="Фильтр" aria-pressed="${S.inStock||!!S.sort}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M6 12h12M10 18h4"/></svg></button></div>
   <div class="tabs" role="tablist">${CATS.map(c=>`<button class="tab" role="tab" data-cat="${esc(c)}" aria-selected="${c===S.cat}">${esc(c)}</button>`).join("")}</div>
-  ${S.cat===CONFIG.PROMO.cat?promoBox():""}${S.cat===CONFIG.KRAFT.cat?kraftBox():""}${S.cat===CONFIG.SALE.cat?saleBox():S.cat==="Главная"&&ITEMS.some(isSale)?saleBox(true):""}${S.cat===CONFIG.MINI.cat?m15Box():S.cat==="Главная"&&ITEMS.some(isM15)?m15Box(true):""}
+  ${S.cat===CONFIG.PROMO.cat?promoBox():""}${S.cat===CONFIG.KRAFT.cat?kraftBox():""}${S.cat===CONFIG.NARCO.cat?narcoBox():""}${S.cat===CONFIG.SALE.cat?saleBox():S.cat==="Главная"&&ITEMS.some(isSale)?saleBox(true):""}${S.cat===CONFIG.MINI.cat?m15Box():S.cat==="Главная"&&ITEMS.some(isM15)?m15Box(true):""}
   <div class="meta"><span>Товаров: ${a.length}</span><span>Опт от ${CONFIG.MIN_WHOLESALE} $</span></div>
   ${a.length?`<div class="grid">${part.map((it,i)=>`${volHead(it,part[i-1])}
     <div class="item"><div class="ph" data-open="${it.id}">${thumb(it)}${volBadge(it)}${it.imgs.length>1?`<span class="more-ph">${it.imgs.length} фото</span>`:""}</div>
@@ -469,7 +474,7 @@ function viewCart(){
     <div class="txt"><div>${esc(l.it.name)}${l.it.cat===CONFIG.MINI.cat&&l.it.vol?` · <b>${esc(l.it.vol)}</b>`:""}</div><div>арт. ${l.it.id} · ${isPromo(l.it)?`${money(c.rubUnit)} · акция 62 мл`:`${money(unitPrice(l.it,c.kq,c.mq))}${isSale(l.it)?" · акция −50%":isKraft(l.it)?" · акция крафт":isM15(l.it)&&c.mq>=CONFIG.M15.from?" · акция 15,5 мл":""}${c.opt||isSale(l.it)?"":` + ${money(isTester(l.it)?CONFIG.SURCHARGE_TESTER:CONFIG.SURCHARGE_OTHER)}`}`}</div></div>
     <div class="stepper" style="margin:0"><button data-dec="${l.it.id}" aria-label="Меньше">−</button><span>${l.n}</span><button data-inc="${l.it.id}" aria-label="Больше">+</button></div></div>`).join("")}</div>
   ${c.qtyRub?promoBox():""}${c.kq?kraftBox():""}${c.mq?m15Box():""}
-  ${c.saleBlock?`<div class="note warn"><b>Ваш заказ меньше ${CONFIG.MIN_WHOLESALE} $.</b> Акционные тестеры продаются только в заказе от ${CONFIG.MIN_WHOLESALE} $. Добавьте ещё любые позиции из каталога на ${money(CONFIG.MIN_WHOLESALE-c.base)} — и акция начнёт для вас действовать.</div>`:""}
+  ${c.saleBlock?`<div class="note warn"><b>Ваш заказ меньше ${CONFIG.MIN_WHOLESALE} $.</b> Акционные позиции продаются только в заказе от ${CONFIG.MIN_WHOLESALE} $. Добавьте ещё любые позиции из каталога на ${money(CONFIG.MIN_WHOLESALE-c.base)} — и акция начнёт для вас действовать.</div>`:""}
   ${c.saleBlock||!c.usd.some(l=>!isSale(l.it))?"":c.opt?`<div class="note ok">Сумма от ${CONFIG.MIN_WHOLESALE} $ — действуют оптовые цены.</div>`
    :`<div class="note warn">До оптовых цен не хватает ${money(CONFIG.MIN_WHOLESALE-c.usdBase)}. Сейчас считается с наценкой: тестеры 25/30/35/40 мл +${CONFIG.SURCHARGE_TESTER} $, остальное +${CONFIG.SURCHARGE_OTHER} $ за штуку. Доберите корзину или оформите по этой цене.</div>`}
   <div class="sum"><div><span>Товаров</span><span>${c.qty} шт.</span></div>
