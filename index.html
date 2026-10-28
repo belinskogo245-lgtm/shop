@@ -160,6 +160,33 @@ nav.bar svg{width:26px;height:26px}
 .spa-sheet .gal2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:6px 0 10px}
 .spa-sheet .gal2 img{width:100%;border-radius:12px;display:block}
 .spa-sheet p{margin:6px 0}
+/* Акция «Лампа за предоплату» */
+.lamp{display:flex;width:100%;text-align:left;border:0;cursor:pointer;background:#1b2350;color:#fff;border-radius:var(--r);margin:0 0 12px;padding:0;overflow:hidden;min-height:170px;font-size:13px;line-height:1.35}
+.lamp .lamp-txt{flex:1;min-width:0;padding:14px 6px 14px 14px;display:flex;flex-direction:column;gap:6px}
+.lamp .lamp-tag{align-self:flex-start;background:#8fa6ff;color:#111a45;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+.lamp .lamp-t{font-size:20px;font-weight:900;line-height:1.15}
+.lamp .lamp-s{color:#c9d1f5}
+.lamp .lamp-go{margin-top:auto;font-weight:700;text-decoration:underline}
+.lamp img{width:38%;max-width:170px;object-fit:cover;display:block;flex:none}
+.note.gift.lampn{border-color:#2b5ce6}.note.gift.lampn b{color:inherit}
+.lamp-gift{display:flex;gap:12px;align-items:center}
+.lamp-gift img{width:64px;height:64px;border-radius:12px;object-fit:cover;flex:none}
+.lamp-pay{display:grid;gap:8px}
+.lamp-pay button{display:flex;gap:12px;align-items:center;text-align:left;background:var(--bg);color:var(--fg);border:2px solid var(--line);border-radius:14px;padding:10px 12px;font-size:15px}
+.lamp-pay button i{flex:none;width:22px;height:22px;border-radius:50%;border:2px solid var(--muted)}
+.lamp-pay button[aria-pressed="true"]{border-color:var(--accent)}
+.lamp-pay button[aria-pressed="true"] i{border:7px solid var(--accent)}
+.lamp-pay span{display:flex;flex-direction:column;gap:2px}
+.lamp-pay small{font-size:13px;color:var(--muted)}.lamp-pay small.ok{color:var(--accent);font-weight:700}
+.lamp-bar i{background:#2b5ce6}
+.lamp-sheet{position:relative}
+.lamp-sheet .lamp-main{width:100%;aspect-ratio:3/4;max-height:52vh;object-fit:cover;border-radius:16px;display:block;background:#1b2350}
+.lamp-th{display:flex;gap:8px;margin-top:10px}
+.lamp-th button{flex:1;padding:0;border:3px solid transparent;border-radius:12px;overflow:hidden;aspect-ratio:1/1;background:var(--card)}
+.lamp-th button[aria-pressed="true"]{border-color:var(--accent)}
+.lamp-th img{width:100%;height:100%;object-fit:cover;display:block}
+.lamp-box{background:var(--card);border-radius:14px;padding:12px 14px;margin:10px 0;display:grid;gap:6px;font-size:14px}
+.lamp-x{position:absolute;right:10px;top:10px;width:40px;height:40px;border-radius:50%;border:0;background:var(--card);font-size:22px;z-index:2}
 .note.gift select{width:100%;margin-top:6px;padding:10px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font:inherit}
 .note.gift label{display:block;margin-top:10px;font-size:13px;color:var(--muted)}
 .inv{background:var(--card);border-radius:var(--r);padding:14px 16px;margin-top:14px}
@@ -231,7 +258,13 @@ const CONFIG = {
   // До START в мини-аппе висит анонс «стартует завтра», с START до END — подарок выбирается в корзине, после END акция исчезает.
   SPA: { start:"2026-10-28T00:00:00+07:00", end:"2026-10-31T00:00:00+07:00", min:120, endTxt:"пятницы, 30 октября", startTxt:"Со среды, 28 октября",
     items:[ {id:"SPA-LAV", name:"СПА-скраб BIOAQUA «Лаванда», 430 г", short:"Лаванда", img:"photos/spa-lavender.jpg"},
-            {id:"SPA-PCH", name:"СПА-скраб BIOAQUA «Медовый персик», 430 г", short:"Медовый персик", img:"photos/spa-peach.jpg"} ] }
+            {id:"SPA-PCH", name:"СПА-скраб BIOAQUA «Медовый персик», 430 г", short:"Медовый персик", img:"photos/spa-peach.jpg"} ] },
+  // Акция «Лампа за предоплату»: заказ от MIN $ оплачен ДО сборки — УФ-лампа для маникюра в подарок. Время — по Красноярску.
+  // С ANNOUNCE до START висит анонс «с понедельника», с START до END — выбор «оплачу до сборки» в корзине.
+  // Посмотреть заранее в браузере: …/shop/?lamp=1
+  LAMP: { announce:"2026-10-31T00:00:00+07:00", start:"2026-11-02T00:00:00+07:00", end:"2026-12-01T00:00:00+07:00", min:120, startTxt:"С понедельника, 2 ноября",
+    id:"LAMP-36W", name:"УФ-лампа для маникюра 36W с таймером 120 сек", hold:24,
+    imgs:["photos/lamp-1.jpg","photos/lamp-2.jpg","photos/lamp-3.jpg","photos/lamp-4.jpg","photos/lamp-5.jpg"] }
 };
 /* ===== ДАННЫЕ (демо: часть каталога). Формат: [арт, категория, название, объём, цена $, в наличии 1/0, фото] ===== */
 const DEMO = /*__DATA__*/[];
@@ -348,6 +381,55 @@ function spaSheet(){
     <button class="big" data-close>${st==="on"?"Собрать заказ":"Понятно"}</button></div>`;
   document.body.appendChild(sh);
   sh.addEventListener("click",e=>{ if(e.target===sh||e.target.closest("[data-close]")) sh.remove(); });
+}
+/* ===== Акция «Лампа за предоплату» ===== */
+const LAMP_PREVIEW = /[?&]lamp=1\b/.test(location.search);
+function lampState(){ const s=CONFIG.LAMP; if(!s) return "off"; if(LAMP_PREVIEW) return "on"; const n=Date.now();
+  if(n<Date.parse(s.announce)) return "off"; if(n<Date.parse(s.start)) return "soon"; if(n<Date.parse(s.end)) return "on"; return "off"; }
+const lampOk = c=>lampState()==="on" && !c.saleBlock && c.base>=CONFIG.LAMP.min;
+const lampPay = ()=>S.gp.lampPay==="later"?"later":"now";
+const lampGift = c=>lampOk(c) && lampPay()==="now";
+function lampBanner(){
+  const st=lampState(); if(st==="off") return ""; const s=CONFIG.LAMP;
+  return `<button class="lamp" data-lamp><div class="lamp-txt"><span class="lamp-tag">${st==="soon"?s.startTxt:"Акция"}</span>
+    <span class="lamp-t">Лампа для маникюра в подарок</span>
+    <span class="lamp-s">Оплатите заказ от ${s.min} $ до сборки, и УФ-лампа 36W поедет к вам вместе с заказом</span>
+    <span class="lamp-go">Подробнее →</span></div><img src="${esc(s.imgs[0])}" alt="УФ-лампа для маникюра"></button>`;
+}
+function lampCart(c){
+  const st=lampState(); if(st==="off") return ""; const s=CONFIG.LAMP;
+  if(st==="soon") return `<div class="note gift lampn"><b>🎁 ${s.startTxt}:</b> оплатите заказ от ${s.min} $ до сборки, и получите УФ-лампу для маникюра в подарок.</div>`;
+  if(!lampOk(c)){ const left=Math.max(0,s.min-c.base), p=Math.min(100,Math.round(c.base/s.min*100));
+    return `<div class="note gift lampn"><b>🎁 До лампы в подарок осталось ${money(left)}</b><br>Наберите заказ от ${s.min} $, оплатите его до сборки, и УФ-лампа 36W ваша.<div class="spa-bar lamp-bar"><i style="width:${p}%"></i></div></div>`; }
+  const now=lampPay()==="now";
+  return `<div class="note gift lampn"><div class="lamp-gift"><img src="${esc(s.imgs[0])}" alt=""><div><b>${now?"🎁 УФ-лампа для маникюра в подарок":"Подарок не входит"}</b><br><span style="font-size:13px;color:var(--muted)">${now?"Оплатите заказ до сборки, и кладём лампу в коробку":"Выберите оплату до сборки, и лампа будет ваша"}</span></div></div>
+    <div style="margin:12px 0 6px;font-weight:700">Когда оплатите?</div>
+    <div class="lamp-pay">
+      <button type="button" data-lamppay="now" aria-pressed="${now}"><i></i><span><b>Сейчас, до сборки</b><small class="ok">Лампа в подарок · собираем в первую очередь</small></span></button>
+      <button type="button" data-lamppay="later" aria-pressed="${!now}"><i></i><span><b>После сборки</b><small>Без подарка · бронь заказа ${s.hold} часа</small></span></button>
+    </div></div>`;
+}
+function lampSheet(){
+  if(document.querySelector(".sheet:not(#pd)")) return; const s=CONFIG.LAMP, st=lampState();
+  const sh=document.createElement("div"); sh.className="sheet";
+  let pick=0;
+  const draw=()=>{ sh.innerHTML=`<div role="dialog" aria-label="Лампа для маникюра в подарок" class="spa-sheet lamp-sheet">
+    <button class="lamp-x" data-close aria-label="Закрыть">×</button>
+    <img class="lamp-main" src="${esc(s.imgs[pick])}" alt="УФ-лампа для маникюра 36W">
+    <div class="lamp-th">${s.imgs.map((u,i)=>`<button type="button" data-lampimg="${i}" aria-pressed="${i===pick}" aria-label="Фото ${i+1}"><img src="${esc(u)}" alt=""></button>`).join("")}</div>
+    <div style="color:var(--accent);font-weight:800;font-size:13px;text-transform:uppercase;letter-spacing:.04em;margin-top:12px">${st==="soon"?s.startTxt:"Акция за предоплату"}</div>
+    <h2 style="margin:4px 0 6px;font-size:22px;line-height:1.2">УФ-лампа для маникюра 36W в подарок</h2>
+    <p>Оплатите заказ от ${s.min} $ <b>до сборки</b>, и лампа с таймером на 120 секунд поедет к вам вместе с заказом. Новая, в коробке.</p>
+    <div class="lamp-box"><b>Что сделать с лампой</b>
+      <div>💝 Подарить жене или близкой, полезный подарок к Новому году</div>
+      <div>🙋 Оставить себе</div>
+      <div>🔥 <b>Разыграть среди своих клиентов</b> в соцсетях или у себя в магазине. Розыгрыш приводит новых подписчиков и покупателей, даёт активность и дополнительные продажи</div></div>
+    <p>✅ Предоплаченные заказы собираем в первую очередь и отправляем в тот же день<br>✅ Фото/видеоотчёт перед отправкой, как всегда<br>✅ Если чего-то нет в наличии, выберите замену на эту сумму</p>
+    <p style="font-size:12px;color:var(--muted)">Одна лампа на заказ от ${s.min} $ любыми товарами. Неоплаченные заказы бронируются на ${s.hold} часа.</p>
+    <button class="big" data-close>${st==="on"?"Собрать заказ":"Понятно"}</button></div>`; };
+  draw(); document.body.appendChild(sh);
+  sh.addEventListener("click",e=>{ const im=e.target.closest("[data-lampimg]"); if(im){ pick=+im.dataset.lampimg; draw(); return; }
+    if(e.target===sh||e.target.closest("[data-close]")) sh.remove(); });
 }
 const priceNum = it=>(isKraft(it)||isM15(it))?unitPrice(it):isPromo(it)?tierOf(Math.max(1,promoQty())).price:it.price;
 const isPromo = it=>it.cat===CONFIG.PROMO.cat;
@@ -502,7 +584,7 @@ function viewHome(){
     <input id="q" type="search" placeholder="Поиск" value="${esc(S.q)}" aria-label="Поиск"></label>
     <button class="iconbtn" id="filt" aria-label="Фильтр" aria-pressed="${S.inStock||!!S.sort}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M6 12h12M10 18h4"/></svg></button></div>
   <div class="tabs" role="tablist">${CATS.map(c=>`<button class="tab" role="tab" data-cat="${esc(c)}" aria-selected="${c===S.cat}">${esc(c)}</button>`).join("")}</div>
-  ${S.cat==="Главная"?spaBanner():""}${S.cat===CONFIG.PROMO.cat?promoBox():""}${S.cat===CONFIG.KRAFT.cat?kraftBox():""}${narcoOf(S.cat)?narcoBox():""}${S.cat===CONFIG.SALE.cat?saleBox():S.cat==="Главная"&&ITEMS.some(isSale)?saleBox(true):""}${S.cat===CONFIG.MINI.cat?m15Box():S.cat==="Главная"&&ITEMS.some(isM15)?m15Box(true):""}
+  ${S.cat==="Главная"?lampBanner()+spaBanner():""}${S.cat===CONFIG.PROMO.cat?promoBox():""}${S.cat===CONFIG.KRAFT.cat?kraftBox():""}${narcoOf(S.cat)?narcoBox():""}${S.cat===CONFIG.SALE.cat?saleBox():S.cat==="Главная"&&ITEMS.some(isSale)?saleBox(true):""}${S.cat===CONFIG.MINI.cat?m15Box():S.cat==="Главная"&&ITEMS.some(isM15)?m15Box(true):""}
   <div class="meta"><span>Товаров: ${a.length}</span><span>Опт от ${CONFIG.MIN_WHOLESALE} $</span></div>
   ${a.length?`<div class="grid">${part.map((it,i)=>`${volHead(it,part[i-1])}
     <div class="item"><div class="ph" data-open="${it.id}">${thumb(it)}${volBadge(it)}${it.imgs.length>1?`<span class="more-ph">${it.imgs.length} фото</span>`:""}</div>
@@ -547,10 +629,11 @@ function viewCart(){
     ${c.qtyRub?`<div><span>Акция 62 мл: ${c.qtyRub} шт × ${money(c.rubUnit)}</span><span>${money(c.totalRub)}</span></div>`:""}
     ${c.disc?`<div><span>Ваша скидка партнёра ${S.me.pct||3}%</span><span>− ${money(c.disc)}</span></div>`:""}
     ${spaOk(c)?`<div><span>🎁 Подарок: СПА-скраб${spaPicked()?" «"+esc(spaPicked().short)+"»":""}</span><span>1 шт. · 0 $</span></div>`:""}
+    ${lampGift(c)?`<div><span>🎁 Лампа за предоплату</span><span>1 шт. · 0 $</span></div>`:""}
     ${giftSlots(c).length?`<div><span>Подарки: флакон 62 мл</span><span>${giftSlots(c).length} шт. · 0 $</span></div>`:""}
     <div class="total"><span>Итого</span><span>${sumTxt(c)}</span></div>
     ${S.rate?`<div style="color:var(--muted)"><span>В рублях по курсу ${S.rate}</span><span>${rubTxt(c.total)}</span></div>`:""}</div>
-  ${spaCart(c)}${giftBox(c)}
+  ${lampCart(c)}${spaCart(c)}${giftBox(c)}
   <form class="form" id="order">
     <label for="f-name">Имя *<input id="f-name" required value="${esc(CUST.name||tgUser().name)}"></label>
     <label for="f-phone">${tgUser().id?"Телефон или Telegram *":"Телефон (WhatsApp / Макс) или Telegram *"}<input id="f-phone" required placeholder="${tgUser().id?"+7… или @ник":"+7…"}" value="${esc(CUST.contact||(tgUser().user?"@"+tgUser().user:""))}"></label>
@@ -572,6 +655,8 @@ function viewInfo(){
   <p>Вы подтверждаете все позиции → мы собираем заказ и готовим накладную → после этого договариваемся о времени отгрузки или отправке транспортной компанией.</p>
   <h3>Цены и оплата</h3>
   <p>Цены в долларах. Оптовые цены действуют от ${CONFIG.MIN_WHOLESALE} $ в корзине. Можно оплатить в $ или в рублях по курсу, который мы назовём перед сборкой.</p>
+  ${lampState()!=="off"?`<h3>Лампа для маникюра за предоплату</h3>
+  <p>${lampState()==="soon"?CONFIG.LAMP.startTxt+": о":"О"}платите заказ от ${CONFIG.LAMP.min} $ до сборки, и получите УФ-лампу для маникюра 36W в подарок. Предоплаченные заказы собираем в первую очередь. Неоплаченные заказы бронируются на ${CONFIG.LAMP.hold} часа.</p>`:""}
   <h3>Акция тестеры до −50%</h3>
   <p>Тестеры 67 мл — 3,5 $ (было 7 $), тестеры 40 мл Champions Cup — 2,5 $ (было 5 $), флаконы 50 мл с мешочком — 4 $ (было 6 $). Акция действует только в заказе от ${CONFIG.MIN_WHOLESALE} $ — сумму можно добрать любыми товарами из каталога. Отдельно меньше чем на ${CONFIG.MIN_WHOLESALE} $ акционные позиции не продаются.</p>
   <h3>Акция 62 мл</h3>
@@ -726,9 +811,10 @@ async function submitOrder(e){
   if(c.saleBlock||!btn){ toast(`Акция действует при заказе от ${CONFIG.MIN_WHOLESALE} $. Добавьте ещё товаров`); return; }
   if(spaOk(c)&&!spaPicked()){ toast("Выберите аромат подарка — Лаванда или Персик"); const pk=document.querySelector(".spa-pick"); if(pk) pk.scrollIntoView({behavior:"smooth",block:"center"}); return; }
   const spa=spaOk(c)?spaPicked():null;
+  const lampOn=lampOk(c), lamp=lampGift(c);
   const order={ date:new Date().toLocaleString("ru-RU"), customer:{name:$("#f-name").value.trim(),contact:$("#f-phone").value.trim(),city:[$("#f-city").value.trim(),$("#f-tk").value].filter(Boolean).join(", "),
-      note:[spa?"🎁 ПОДАРОК: "+spa.name:"",$("#f-fio").value.trim()?"Получатель: "+$("#f-fio").value.trim():"",$("#f-note").value.trim()].filter(Boolean).join(". "),tg:tgUser()},
-    items:c.lines.map(l=>isPromo(l.it)?({id:l.it.id,name:l.it.name+" (акция 62 мл)",cat:l.it.cat,price:c.rubUnit,qty:l.n}):({id:l.it.id,name:l.it.name+(isSale(l.it)?" ("+l.it.vol+", акция −"+salePct(l.it)+"%)":l.it.cat===CONFIG.MINI.cat&&l.it.vol?" ("+l.it.vol+")":""),cat:l.it.cat,price:unitPrice(l.it,c.kq,c.mq),qty:l.n})).concat(spa?[{id:spa.id,name:"🎁 ПОДАРОК (акция СПА): "+spa.name,cat:"Подарок",price:0,qty:1}]:[]), base:c.base, extra:c.extra, total:c.total, qty:c.qty, opt:c.opt,
+      note:[lamp?"💳 ОПЛАТА ДО СБОРКИ — 🎁 ПОДАРОК: "+CONFIG.LAMP.name:lampOn?"Оплата после сборки (без лампы)":"",spa?"🎁 ПОДАРОК: "+spa.name:"",$("#f-fio").value.trim()?"Получатель: "+$("#f-fio").value.trim():"",$("#f-note").value.trim()].filter(Boolean).join(". "),tg:tgUser()},
+    items:c.lines.map(l=>isPromo(l.it)?({id:l.it.id,name:l.it.name+" (акция 62 мл)",cat:l.it.cat,price:c.rubUnit,qty:l.n}):({id:l.it.id,name:l.it.name+(isSale(l.it)?" ("+l.it.vol+", акция −"+salePct(l.it)+"%)":l.it.cat===CONFIG.MINI.cat&&l.it.vol?" ("+l.it.vol+")":""),cat:l.it.cat,price:unitPrice(l.it,c.kq,c.mq),qty:l.n})).concat(spa?[{id:spa.id,name:"🎁 ПОДАРОК (акция СПА): "+spa.name,cat:"Подарок",price:0,qty:1}]:[]).concat(lamp?[{id:CONFIG.LAMP.id,name:"🎁 ПОДАРОК за предоплату: "+CONFIG.LAMP.name,cat:"Подарок",price:0,qty:1}]:[]), base:c.base, extra:c.extra, total:c.total, qty:c.qty, opt:c.opt,
     promoQty:c.qtyRub, promoUnit:c.rubUnit, sumText:sumTxt(c), disc:c.disc,
     gifts:giftSlots(c).map(sl=>{ const it=ITEMS.find(x=>String(x.id)===String(S.gp[sl.key])); return {type:sl.type,id:it?it.id:"",name:it?it.name:""}; }) };
   order.num=String(Date.now()).slice(-6);
@@ -739,7 +825,7 @@ async function submitOrder(e){
     const r=await fetch(CONFIG.API_URL,{method:"POST",body:JSON.stringify({action:"order",order,initData:tg?tg.initData:""})});
     const j=await r.json(); if(!j.ok) throw new Error(j.error||"Ошибка");
     S.orders.push({date:order.date,qty:c.qty,total:c.total,sum:sumTxt(c),status:"принят, ждёт подтверждения"}); store.set("orders",S.orders);
-    S.cart={}; store.set("cart",S.cart); S.gp={}; store.set("gp",S.gp); S.view="profile"; render(); toast("Заказ отправлен. Мы свяжемся с вами в Telegram"); loadMe();
+    S.cart={}; store.set("cart",S.cart); S.gp={}; store.set("gp",S.gp); S.view="profile"; render(); toast(lamp?"Заказ отправлен. Пришлём реквизиты — оплатите до сборки, и лампа ваша":"Заказ отправлен. Мы свяжемся с вами в Telegram"); loadMe();
   }catch(err){ btn.disabled=false; btn.textContent="Оформить заказ на "+sumTxt(c); toast("Заказ не ушёл: проверьте интернет и нажмите ещё раз"); }
 }
 document.addEventListener("click",e=>{
@@ -763,7 +849,8 @@ document.addEventListener("click",e=>{
   else if(t.id==="more"){ S.shown+=CONFIG.PAGE; render(); }
   else if(t.id==="filt"){ openFilter(); }
 });
-document.addEventListener("click",e=>{ const sp=e.target.closest("[data-spapick]"); if(sp){ S.gp.spa=sp.dataset.spapick; store.set("gp",S.gp); haptic(); render(); return; } if(e.target.closest("[data-spa]")) spaSheet(); });
+document.addEventListener("click",e=>{ const sp=e.target.closest("[data-spapick]"); if(sp){ S.gp.spa=sp.dataset.spapick; store.set("gp",S.gp); haptic(); render(); return; } if(e.target.closest("[data-spa]")) spaSheet();
+  const lp=e.target.closest("[data-lamppay]"); if(lp){ S.gp.lampPay=lp.dataset.lamppay; store.set("gp",S.gp); haptic(); render(); return; } if(e.target.closest("[data-lamp]")) lampSheet(); });
 document.addEventListener("change",e=>{ const g=e.target.closest("[data-gift]"); if(g){ S.gp[g.dataset.gift]=g.value; store.set("gp",S.gp); } });
 $("#app").innerHTML='<div class="empty">Загружаем каталог…</div>';
 load();
