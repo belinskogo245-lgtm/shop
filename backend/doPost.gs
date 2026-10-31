@@ -26,7 +26,7 @@ function doPost(e) {
       const pr = applyPartner_(body, o);
       const allLines = lines + (pr.giftLines.length ? '\n' + pr.giftLines.join('\n') : '');
       sh.appendRow([new Date(), o.customer.name, o.customer.contact, tgu.user ? '@' + tgu.user : (tgu.id || ''), o.customer.city, o.customer.note,
-        allLines, o.qty, round_(o.base), round_(o.extra), round_(pr.total), 'новый', o.totalRub || '', oid, pr.uid, pr.refId, pr.refGifts || '', pr.disc || '']);
+        allLines, o.qty, round_(o.base), round_(o.extra), round_(pr.total), 'новый', o.totalRub || '', oid, pr.uid, pr.refId, pr.refGifts || '', pr.disc || '', pr.bonusUsed || '']);
       const num = sh.getLastRow() - 1;
       const rate = Number(prop_('RATE')) || 0;
 
@@ -39,7 +39,7 @@ function doPost(e) {
         `Штук: ${o.qty}` +
         (o.base ? `\nПо опту: ${round_(o.base)} $` : '') +
         (o.extra ? `\nНаценка (ниже 120 $): +${round_(o.extra)} $` : '') +
-        (pr.disc ? `\nСкидка партнёра 3%: −${pr.disc} $` : '') +
+        (pr.bonusUsed ? `\nОплачено бонусами: −${pr.bonusUsed} $` : '') +
         `\nИтого: ${round_(pr.total)} $` +
         (rate ? ` (≈ ${rub_(pr.total * rate)} ₽ по курсу ${rate})` : '') +
         (pr.notes.length ? '\n\n' + pr.notes.join('\n') : '');

@@ -606,11 +606,19 @@ function calc(){
   const qtyRub = rubL.reduce((s,l)=>s+l.n,0), rubUnit = qtyRub?tierOf(qtyRub).price:0;
   const totalRub = qtyRub*rubUnit;
   const gross = base+totalRub+extra;
-  const disc = S.me&&S.me.discount ? Math.round(gross*(S.me.pct||3))/100 : 0;
+  const disc = 0;
+  const bonusBal = S.me&&S.me.bonus>0 ? S.me.bonus : 0;
+  const bonus = S.useBonus&&bonusBal ? Math.round(Math.min(bonusBal,gross)*100)/100 : 0;
   const sq = lines.reduce((s,l)=>s+(isSale(l.it)?l.n:0),0), saleBlock = sq>0 && base+totalRub<CONFIG.MIN_WHOLESALE;
-  return {sq,saleBlock,kq,mq,lines,usd,rubL,base:base+totalRub,usdBase:base,opt,extra,gross,disc,total:Math.round((gross-disc)*100)/100,qty,qtyRub,rubUnit,totalRub};
+  return {sq,saleBlock,kq,mq,lines,usd,rubL,base:base+totalRub,usdBase:base,opt,extra,gross,disc,bonus,bonusBal,total:Math.round((gross-disc-bonus)*100)/100,qty,qtyRub,rubUnit,totalRub};
 }
 const sumTxt = c=>money(c.total);
+/* Бонусы за друзей (3% с их заказов): галочка «оплатить бонусами» в корзине */
+function bonusBox(c){
+  if(!c.bonusBal) return "";
+  return `<div class="note gift"><label style="display:flex;gap:10px;align-items:center;margin:0;font-size:15px;color:var(--fg)"><input type="checkbox" data-bonus ${S.useBonus?"checked":""} style="width:22px;height:22px">
+    <span><b>Оплатить бонусами</b><br><span style="font-size:13px;color:var(--muted)">У вас ${money(c.bonusBal)} бонусов за друзей${c.bonus?` · спишем ${money(c.bonus)}`:""}</span></span></label></div>`;
+}
 let CUST = store.get("cust",{});
 function viewCart(){
   const c = calc();
@@ -627,13 +635,13 @@ function viewCart(){
     ${c.usd.length?`<div><span>По оптовым ценам</span><span>${money(c.usdBase)}</span></div>`:""}
     ${c.extra?`<div><span>Наценка ниже опта</span><span>+ ${money(c.extra)}</span></div>`:""}
     ${c.qtyRub?`<div><span>Акция 62 мл: ${c.qtyRub} шт × ${money(c.rubUnit)}</span><span>${money(c.totalRub)}</span></div>`:""}
-    ${c.disc?`<div><span>Ваша скидка партнёра ${S.me.pct||3}%</span><span>− ${money(c.disc)}</span></div>`:""}
+    ${c.bonus?`<div><span>Оплата бонусами</span><span>− ${money(c.bonus)}</span></div>`:""}
     ${spaOk(c)?`<div><span>🎁 Подарок: СПА-скраб${spaPicked()?" «"+esc(spaPicked().short)+"»":""}</span><span>1 шт. · 0 $</span></div>`:""}
     ${lampGift(c)?`<div><span>🎁 Лампа за предоплату</span><span>1 шт. · 0 $</span></div>`:""}
     ${giftSlots(c).length?`<div><span>Подарки: флакон 62 мл</span><span>${giftSlots(c).length} шт. · 0 $</span></div>`:""}
     <div class="total"><span>Итого</span><span>${sumTxt(c)}</span></div>
     ${S.rate?`<div style="color:var(--muted)"><span>В рублях по курсу ${S.rate}</span><span>${rubTxt(c.total)}</span></div>`:""}</div>
-  ${lampCart(c)}${spaCart(c)}${giftBox(c)}
+  ${bonusBox(c)}${lampCart(c)}${spaCart(c)}${giftBox(c)}
   <form class="form" id="order">
     <label for="f-name">Имя *<input id="f-name" required value="${esc(CUST.name||tgUser().name)}"></label>
     <label for="f-phone">${tgUser().id?"Телефон или Telegram *":"Телефон (WhatsApp / Макс) или Telegram *"}<input id="f-phone" required placeholder="${tgUser().id?"+7… или @ник":"+7…"}" value="${esc(CUST.contact||(tgUser().user?"@"+tgUser().user:""))}"></label>
@@ -664,8 +672,8 @@ function viewInfo(){
   <h3>Акция на крафт 40 мл</h3>
   <p>Тестеры 40 мл в белых и цветных коробках — 5 $. Тестеры в крафтовых коробках: от ${CONFIG.KRAFT.from} шт в заказе (ароматы можно смешивать) — ${money(CONFIG.KRAFT.price)} за штуку.</p>
   <p>Тестеры 15,5 мл — 2,2 $. Акция: от ${CONFIG.M15.from} шт тестеров 15,5 мл в заказе (ароматы можно смешивать) — ${money(CONFIG.M15.price)} за штуку.</p>
-  <h3>Приведи друга — флакон 62 мл в подарок</h3>
-  <p>После первого оплаченного заказа в профиле появляется кнопка «Пригласить друга» с вашей личной ссылкой. Друг, который откроет каталог по ней, получает флакон 62 мл на выбор к первому заказу от 120 $. Вы получаете флакон 62 мл на выбор, когда друг оплатит заказ. Пригласите 5 друзей — постоянная скидка 3% на все заказы. Приглашать можно без ограничений, подарки копятся.</p>
+  <h3>Приведи друга — флакон 62 мл каждому и 3% с заказов друга навсегда</h3>
+  <p>После первого оплаченного заказа в профиле появляется блок «Приведи друга» с вашей личной ссылкой. Друг, который откроет каталог по ней, получает флакон 62 мл на выбор к первому заказу от 120 $ и, как все клиенты, участвует во всех акциях и распродажах. Вы получаете флакон 62 мл на выбор, когда друг оплатит первый заказ, и 3% бонусами с каждого его оплаченного заказа от 120 $ — постоянно, без срока. Бонусы копятся в профиле: ими можно оплатить свой заказ (галочка в корзине) или вывести деньгами — напишите нам. Приглашать можно без ограничений.</p>
   <p style="color:var(--muted)">Акция работает в тестовом режиме. Если подарок не отобразился, напишите нам — проверим и начислим вручную. Организатор вправе изменять условия акции.</p>
   <h3>Условия</h3>
   <p>Весь товар перед отправкой проверяется. Возврата и обмена нет. После передачи товара в ТК ответственность за сохранность лежит на получателе.</p>
@@ -680,20 +688,20 @@ function inviteLink(){ return S.me?BOT_APP+"r_"+S.me.id:""; }
 function inviteBox(){
   const m=S.me; if(!m) return "";
   const adm = m.isAdmin?`<button class="big" style="margin-top:10px" data-act="orders">Заказы (видно только вам)</button><button class="big alt" style="margin-top:10px" data-act="partners">Партнёры (видно только вам)</button>`:"";
-  if(!m.canInvite) return `<div class="inv"><h3>Приведи друга</h3><p>После первого оплаченного заказа здесь появится ваша ссылка. Друг получит флакон 62 мл в подарок к первому заказу от 120 $, и вы тоже получите флакон 62 мл.</p>${adm}</div>`;
-  const need=Math.max(0,(m.friendsForDiscount||5)-(m.friends||0));
-  return `<div class="inv"><h3>Приведи друга — флакон 62 мл в подарок</h3>
-    <p>Отправьте другу свою ссылку. Он получит флакон 62 мл к первому заказу от ${m.minGift||120} $, а вы — флакон 62 мл, когда друг оплатит заказ.</p>
+  const pct=m.pct||3;
+  if(!m.canInvite) return `<div class="inv"><h3>Приведи друга</h3><p>После первого оплаченного заказа здесь появится ваша ссылка. Друг получит флакон 62 мл в подарок к первому заказу от 120 $, а вы — флакон 62 мл и ${pct}% бонусами с каждого его заказа навсегда.</p>${adm}</div>`;
+  return `<div class="inv"><h3>Приведи друга — флакон 62 мл + ${pct}% с его заказов</h3>
+    <p>Отправьте другу свою ссылку. Он получит флакон 62 мл к первому заказу от ${m.minGift||120} $. Вы — флакон 62 мл, когда друг оплатит первый заказ, и ${pct}% бонусами с каждого его оплаченного заказа — навсегда.</p>
     <div class="lnk">${esc(inviteLink())}</div>
     <div class="btns"><button class="big" data-act="share">Поделиться</button><button class="big alt" data-act="copy">Скопировать</button></div>
-    <div class="stats"><div><b>${m.friends||0}</b>друзей оплатили</div><div><b>${m.gifts||0}</b>подарков ждёт</div><div><b>${m.discount?(m.pct||3)+"%":need}</b>${m.discount?"ваша скидка":"друзей до скидки 3%"}</div></div>
-    <p style="font-size:12px;color:var(--muted)">Подарки выбираются в корзине при следующем заказе. Акция в тестовом режиме: если подарок не отобразился, напишите нам — начислим вручную.</p>${adm}</div>`;
+    <div class="stats"><div><b>${m.friends||0}</b>друзей оплатили</div><div><b>${m.gifts||0}</b>подарков ждёт</div><div><b>${money(m.bonus||0)}</b>бонусов на балансе</div></div>
+    <p style="font-size:12px;color:var(--muted)">Подарки и оплата бонусами — в корзине при следующем заказе. Вывести бонусы деньгами — напишите нам. Акция в тестовом режиме: если что-то не отобразилось, напишите — начислим вручную.</p>${adm}</div>`;
 }
 function viewPartners(){
   const p=S.partners;
   const body = !p?`<div class="empty">Загружаем…</div>`:!p.ok?`<div class="empty">Не удалось загрузить</div>`:!p.rows.length?`<div class="empty" style="padding:24px">Пока никто не пришёл по приглашению. Клиентов в базе: ${p.total||0}</div>`
-    :`<div class="list">${p.rows.map(r=>`<div class="row"><div class="txt"><div>${esc(r.name)}${r.disc?" · скидка 3%":""}</div><div>${r.ref?"пригласил: "+esc(r.ref)+" · ":""}заказов: ${r.placed}, оплачено: ${r.paid} · друзей: ${r.friends} · подарков ждёт: ${r.gifts}, получено: ${r.used}</div></div></div>`).join("")}</div>`;
-  return `<h1>Партнёры</h1><p class="foot" style="margin-top:0">Подробно — в таблице, лист «Партнёры». Команды боту: «курс 90», «привязать 15 @ник», «партнёр @ник», «партнёры».</p>${body}
+    :`<div class="list">${p.rows.map(r=>`<div class="row"><div class="txt"><div>${esc(r.name)}</div><div>${r.ref?"пригласил: "+esc(r.ref)+" · ":""}заказов: ${r.placed}, оплачено: ${r.paid} · друзей: ${r.friends} · подарков ждёт: ${r.gifts}, получено: ${r.used}${r.bonusTotal?` · бонусы: ${money(r.bonus||0)} (всего ${money(r.bonusTotal)})`:""}</div></div></div>`).join("")}</div>`;
+  return `<h1>Партнёры</h1><p class="foot" style="margin-top:0">Подробно — в таблице, лист «Партнёры». Команды боту: «курс 90», «привязать 15 @ник», «партнёр @ник», «партнёры», «бонус @ник 5» / «бонус @ник -10».</p>${body}
   <button class="big alt" style="margin-top:14px" data-go="profile">Назад</button>`;
 }
 /* Заказы всех клиентов — только для вас. Данные из листа «Заказы». */
@@ -815,7 +823,7 @@ async function submitOrder(e){
   const order={ date:new Date().toLocaleString("ru-RU"), customer:{name:$("#f-name").value.trim(),contact:$("#f-phone").value.trim(),city:[$("#f-city").value.trim(),$("#f-tk").value].filter(Boolean).join(", "),
       note:[lamp?"💳 ОПЛАТА ДО СБОРКИ — 🎁 ПОДАРОК: "+CONFIG.LAMP.name:lampOn?"Оплата после сборки (без лампы)":"",spa?"🎁 ПОДАРОК: "+spa.name:"",$("#f-fio").value.trim()?"Получатель: "+$("#f-fio").value.trim():"",$("#f-note").value.trim()].filter(Boolean).join(". "),tg:tgUser()},
     items:c.lines.map(l=>isPromo(l.it)?({id:l.it.id,name:l.it.name+" (акция 62 мл)",cat:l.it.cat,price:c.rubUnit,qty:l.n}):({id:l.it.id,name:l.it.name+(isSale(l.it)?" ("+l.it.vol+", акция −"+salePct(l.it)+"%)":l.it.cat===CONFIG.MINI.cat&&l.it.vol?" ("+l.it.vol+")":""),cat:l.it.cat,price:unitPrice(l.it,c.kq,c.mq),qty:l.n})).concat(spa?[{id:spa.id,name:"🎁 ПОДАРОК (акция СПА): "+spa.name,cat:"Подарок",price:0,qty:1}]:[]).concat(lamp?[{id:CONFIG.LAMP.id,name:"🎁 ПОДАРОК за предоплату: "+CONFIG.LAMP.name,cat:"Подарок",price:0,qty:1}]:[]), base:c.base, extra:c.extra, total:c.total, qty:c.qty, opt:c.opt,
-    promoQty:c.qtyRub, promoUnit:c.rubUnit, sumText:sumTxt(c), disc:c.disc,
+    promoQty:c.qtyRub, promoUnit:c.rubUnit, sumText:sumTxt(c), disc:c.disc, bonus:c.bonus,
     gifts:giftSlots(c).map(sl=>{ const it=ITEMS.find(x=>String(x.id)===String(S.gp[sl.key])); return {type:sl.type,id:it?it.id:"",name:it?it.name:""}; }) };
   order.num=String(Date.now()).slice(-6);
   CUST={name:$("#f-name").value.trim(),contact:$("#f-phone").value.trim(),city:$("#f-city").value.trim(),tk:$("#f-tk").value,fio:$("#f-fio").value.trim()}; store.set("cust",CUST);
@@ -825,13 +833,13 @@ async function submitOrder(e){
     const r=await fetch(CONFIG.API_URL,{method:"POST",body:JSON.stringify({action:"order",order,initData:tg?tg.initData:""})});
     const j=await r.json(); if(!j.ok) throw new Error(j.error||"Ошибка");
     S.orders.push({date:order.date,qty:c.qty,total:c.total,sum:sumTxt(c),status:"принят, ждёт подтверждения"}); store.set("orders",S.orders);
-    S.cart={}; store.set("cart",S.cart); S.gp={}; store.set("gp",S.gp); S.view="profile"; render(); toast(lamp?"Заказ отправлен. Пришлём реквизиты — оплатите до сборки, и лампа ваша":"Заказ отправлен. Мы свяжемся с вами в Telegram"); loadMe();
+    S.cart={}; store.set("cart",S.cart); S.gp={}; store.set("gp",S.gp); S.useBonus=false; S.view="profile"; render(); toast(lamp?"Заказ отправлен. Пришлём реквизиты — оплатите до сборки, и лампа ваша":"Заказ отправлен. Мы свяжемся с вами в Telegram"); loadMe();
   }catch(err){ btn.disabled=false; btn.textContent="Оформить заказ на "+sumTxt(c); toast("Заказ не ушёл: проверьте интернет и нажмите ещё раз"); }
 }
 document.addEventListener("click",e=>{
   const a=e.target.closest("[data-act]");
   if(a){ const act=a.dataset.act, link=inviteLink();
-    if(act==="share"){ const txt="Оптовый каталог парфюмерии — флакон 62 мл в подарок к первому заказу по моей ссылке"; const u="https://t.me/share/url?url="+encodeURIComponent(link)+"&text="+encodeURIComponent(txt);
+    if(act==="share"){ const txt="Оптовый каталог парфюмерии — флакон 62 мл в подарок к первому заказу от 120 $ по моей ссылке"; const u="https://t.me/share/url?url="+encodeURIComponent(link)+"&text="+encodeURIComponent(txt);
       try{ tg?tg.openTelegramLink(u):window.open(u,"_blank"); }catch(err){ window.open(u,"_blank"); } }
     else if(act==="copy"){ (navigator.clipboard?navigator.clipboard.writeText(link):Promise.reject()).then(()=>toast("Ссылка скопирована"),()=>toast("Выделите ссылку и скопируйте")); }
     else if(act==="orders"){ S.view="orders"; S.adminOrders=null; render(); window.scrollTo(0,0); api({action:"orders"}).then(j=>{S.adminOrders=j;render();}).catch(()=>{S.adminOrders={ok:false};render();}); }
@@ -851,7 +859,8 @@ document.addEventListener("click",e=>{
 });
 document.addEventListener("click",e=>{ const sp=e.target.closest("[data-spapick]"); if(sp){ S.gp.spa=sp.dataset.spapick; store.set("gp",S.gp); haptic(); render(); return; } if(e.target.closest("[data-spa]")) spaSheet();
   const lp=e.target.closest("[data-lamppay]"); if(lp){ S.gp.lampPay=lp.dataset.lamppay; store.set("gp",S.gp); haptic(); render(); return; } if(e.target.closest("[data-lamp]")) lampSheet(); });
-document.addEventListener("change",e=>{ const g=e.target.closest("[data-gift]"); if(g){ S.gp[g.dataset.gift]=g.value; store.set("gp",S.gp); } });
+document.addEventListener("change",e=>{ const g=e.target.closest("[data-gift]"); if(g){ S.gp[g.dataset.gift]=g.value; store.set("gp",S.gp); }
+  const b=e.target.closest("[data-bonus]"); if(b){ const y=window.scrollY; S.useBonus=b.checked; render(); window.scrollTo(0,y); } });
 $("#app").innerHTML='<div class="empty">Загружаем каталог…</div>';
 load();
 </script>
