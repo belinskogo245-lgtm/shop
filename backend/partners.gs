@@ -79,7 +79,8 @@ function clientGet_(u) {
 }
 
 function allowList_() { try { return JSON.parse(prop_('ALLOW_INVITE') || '[]'); } catch (e) { return []; } }
-function canInvite_(v) { return Number(v[5]) > 0 || (v[2] && allowList_().indexOf(String(v[2]).toLowerCase()) >= 0); }
+// Ссылка для приглашения есть у всех, кто открыл мини-апп (награда всё равно только после оплаты заказа друга)
+function canInvite_(v) { return !!(v && v[0]); }
 
 // Данные клиента для мини-аппа + привязка к пригласившему при первом входе по ссылке
 function me_(body) {
