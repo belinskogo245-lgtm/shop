@@ -490,6 +490,7 @@ const CLIENT_COLS = 14;
 const ORDER_EXTRA_HEAD = ['TG ID клиента', 'Пригласил (TG ID)', 'Подарков за друзей', 'Скидка 3% $', 'Оплачено бонусами $', 'Бонус пригласившему $'];
 const MIN_GIFT_ORDER = 120;
 const BONUS_PCT = 3;
+const MIN_WITHDRAW = 50;
 
 function rub_(n) { return (Math.round(Number(n) / 10) * 10).toLocaleString('ru-RU'); }
 
@@ -617,6 +618,8 @@ function applyPartner_(body, o) {
   }
   if (c.v[3]) {
     const ref = clientFind_(c.v[3]);
+    const warn = suspect_(o, res.uid, String(c.v[3]), ref);
+    if (warn) res.notes.push(warn);
     if (res.total + res.bonusUsed >= MIN_GIFT_ORDER) res.notes.push(`💸 После «Оплачен» пригласившему (${ref ? refLabel_(ref.v) : c.v[3]}) начислится ${BONUS_PCT}% бонусами.`);
   }
   c.v[4] = Number(c.v[4] || 0) + 1;
@@ -624,6 +627,66 @@ function applyPartner_(body, o) {
   c.v[8] = Number(c.v[8] || 0) + want;
   clientSave_(c);
   return res;
+}
+
+// Проверка «новизны» клиента по приглашению: совпадение телефона / ника / ФИО получателя с прошлыми заказами
+function keys_(contact, note, tg) {
+  const k = [];
+  const d = String(contact || '').replace(/\D/g, '');
+  if (d.length >= 10) k.push('tel:' + d.slice(-10));
+  const nick = (String(contact || '').match(/@([A-Za-z0-9_]{4,})/) || [])[1] || String(tg || '').replace(/^@/, '');
+  if (nick) k.push('nick:' + nick.toLowerCase());
+  const f = (String(note || '').match(/Получатель:\s*([^·\n|]+)/) || [])[1];
+  if (f && f.trim().split(/\s+/).length >= 2) k.push('fio:' + f.trim().toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' '));
+  return k;
+}
+function suspect_(o, uid, refId, ref) {
+  try {
+    const cu = o.customer || {}, tgu = cu.tg || {};
+    const mine = keys_(cu.contact, cu.note, tgu.user);
+    if (!mine.length) return '';
+    const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_ORDERS);
+    if (!sh || sh.getLastRow() < 2) return '';
+    const v = sh.getRange(2, 1, sh.getLastRow() - 1, 15).getValues();
+    const refNick = ref ? String(ref.v[2] || '').toLowerCase() : '';
+    let self = 0, old = 0;
+    v.forEach(r => {
+      if (String(r[14]) === uid) return;
+      const hit = keys_(r[2], r[5], r[3]).some(k => mine.indexOf(k) >= 0);
+      if (!hit) return;
+      if (String(r[14]) === refId || (refNick && String(r[3]).toLowerCase() === refNick)) self++; else old++;
+    });
+    if (self) return `⚠️ ВНИМАНИЕ: телефон/ник/ФИО совпадают с заказами ПРИГЛАСИВШЕГО (${ref ? refLabel_(ref.v) : refId}) — похоже, пригласил сам себя. Если так — команда «отвязать <номер заказа>», флакон не кладите.`;
+    if (old) return `⚠️ ВНИМАНИЕ: телефон/ник/ФИО уже встречались в прошлых заказах (${old} шт.) — похоже, это НЕ новый клиент. Если так — команда «отвязать <номер заказа>», флакон не кладите.`;
+  } catch (e) {}
+  return '';
+}
+
+// «отвязать 15» — убрать приглашение у клиента из заказа №15: подарок и 3% не начисляются (если уже начислены — списываются)
+function unbindCmd_(num) {
+  const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_ORDERS);
+  const row = Number(num) + 1;
+  if (!sh || row < 2 || row > sh.getLastRow()) return 'Нет заказа №' + num;
+  const r = sh.getRange(row, 1, 1, 20).getValues()[0];
+  const c = r[14] ? clientFind_(r[14]) : null;
+  const refId = String(r[15] || (c && c.v[3]) || '');
+  if (!refId) return 'Заказ №' + num + ' не связан с приглашением — отвязывать нечего.';
+  const p = clientFind_(refId);
+  const out = ['✅ Клиент из заказа №' + num + ' отвязан от ' + (p ? refLabel_(p.v) : refId) + '. Больше 3% с его заказов начисляться не будут.'];
+  if (c) { c.v[3] = ''; clientSave_(c); }
+  if (r[15]) { sh.getRange(row, 16).setValue(''); out.push('Флакон новому клиенту в этот заказ не кладите.'); }
+  if (String(r[11]) === 'оплачен' && p) {
+    // откатываем уже начисленное по ВСЕМ оплаченным заказам этого клиента
+    const all = sh.getRange(2, 1, sh.getLastRow() - 1, 20).getValues();
+    let back = 0;
+    all.forEach((x, k) => { if (r[14] && String(x[14]) === String(r[14]) && Number(x[19]) > 0) { back += Number(x[19]); sh.getRange(k + 2, 20).setValue(''); } });
+    back = round_(Math.min(back, bonus_(p.v)));
+    if (back) { p.v[11] = round_(bonus_(p.v) - back); p.v[12] = round_((Number(p.v[12]) || 0) - back); }
+    if (r[15]) { p.v[6] = Math.max(0, Number(p.v[6] || 0) - 1); if (Number(p.v[7]) > 0) p.v[7] = Number(p.v[7]) - 1; }
+    clientSave_(p);
+    out.push('У партнёра списано: ' + (back ? back + ' $ бонусов' : 'бонусов не было') + (r[15] ? ', подарок за друга снят' : '') + '.');
+  }
+  return out.join(' ');
 }
 
 // Список партнёров — только для вас (раздел «Партнёры» в мини-аппе)
@@ -708,11 +771,13 @@ function bindCmd_(num, who) {
 }
 
 function bonusCmd_(who, amt) {
+  const force = /!$/.test(String(who)); who = String(who).replace(/!$/, '');
   const c = clientFind_(who);
   if (!c) return 'Клиент ' + who + ' не найден: он должен хотя бы раз открыть мини-апп. Можно указать TG ID из листа «Партнёры».';
   if (!amt) return 'Пример: бонус @ivan 5 или бонус @ivan -10';
   const bal = bonus_(c.v);
   if (amt < 0 && -amt > bal) return 'У ' + refLabel_(c.v) + ' на балансе только ' + bal + ' $.';
+  if (amt < 0 && -amt < MIN_WITHDRAW && !force) return `По правилам вывод деньгами — от ${MIN_WITHDRAW} $. Если всё равно списать — добавьте «!» к нику: «бонус ${who}! ${amt}».`;
   c.v[11] = round_(bal + amt);
   if (amt > 0) c.v[12] = round_((Number(c.v[12]) || 0) + amt); else c.v[13] = round_((Number(c.v[13]) || 0) - amt);
   clientSave_(c);
@@ -730,7 +795,7 @@ function partnersText_() {
   return '🤝 Партнёры:\n\n' + v.slice(0, 40).map(r => `${refLabel_(r)} — друзей оплатили: ${Number(r[6]) || 0}, подарков доступно: ${Number(r[7]) || 0}, получено: ${Number(r[8]) || 0}, бонусы: ${round_(Number(r[11]) || 0)} $ (всего начислено ${round_(Number(r[12]) || 0)} $)`).join('\n');
 }
 
-const BOT_HELP = 'Команды:\n• курс 90 — поменять курс ₽/$ в мини-аппе\n• привязать 15 @ivan — привязать клиента из заказа №15 к партнёру (если он пришёл не по ссылке)\n• партнёры — список партнёров\n• бонус @ivan 5 — добавить клиенту 5 $ бонусов; бонус @ivan -10 — списать (например, когда перевели ему деньгами)';
+const BOT_HELP = 'Команды:\n• курс 90 — поменять курс ₽/$ в мини-аппе\n• привязать 15 @ivan — привязать клиента из заказа №15 к партнёру (если он пришёл не по ссылке)\n• отвязать 15 — клиент из заказа №15 оказался не новым: убрать приглашение, подарок и 3%\n• партнёры — список партнёров\n• бонус @ivan 5 — добавить клиенту 5 $ бонусов; бонус @ivan -10 — списать (например, когда перевели ему деньгами)';
 
 function handleUpdate_(u) {
   const admin = String(prop_('ADMIN_CHAT_ID'));
@@ -763,6 +828,7 @@ function handleUpdate_(u) {
     return;
   }
   if ((mm = t.match(/^\/?привязать\s+№?\s*(\d+)\s+(\S+)/i))) { sendTg_(chat, bindCmd_(mm[1], mm[2])); return; }
+  if ((mm = t.match(/^\/?отвязать\s+№?\s*(\d+)\s*$/i))) { sendTg_(chat, unbindCmd_(mm[1])); return; }
   if (/^\/?партн[её]ры\s*$/i.test(t)) { sendTg_(chat, partnersText_()); return; }
   if ((mm = t.match(/^\/?бонус\S*\s+(\S+)\s+([+-]?\d+(?:[.,]\d+)?)\s*$/i))) { sendTg_(chat, bonusCmd_(mm[1], Number(mm[2].replace(',', '.')))); return; }
   if (/^\/?(start|help|помощь)/i.test(t)) sendTg_(chat, BOT_HELP);
