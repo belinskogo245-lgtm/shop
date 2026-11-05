@@ -15,6 +15,12 @@ function json_(o) { return ContentService.createTextOutput(JSON.stringify(o)).se
 // GET ?action=catalog → весь каталог из листа «Товары»
 function doGet(e) {
   if (e && e.parameter && e.parameter.action === 'order') return json_(getOrderById_(e.parameter.id));
+  // Профиль, «Заказы», «Партнёры» тоже через GET: с некоторых телефонов (VPN) POST не доходит
+  if (e && e.parameter && ['me', 'orders', 'partners'].indexOf(e.parameter.action) >= 0) {
+    const b = { action: e.parameter.action, initData: e.parameter.initData || '', ref: e.parameter.ref || '' };
+    try { return json_(b.action === 'me' ? me_(b) : b.action === 'orders' ? orders_(b) : partners_(b)); }
+    catch (err) { return json_({ ok: false, error: String(err) }); }
+  }
   const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_ITEMS);
   const rows = sh.getRange(2, 1, Math.max(sh.getLastRow() - 1, 1), 13).getValues();
   // столбцы: A id, B Категория, C Бренд, D Название, E Объём, F Пол, G Цена опт, H Цена от 100, I Мин. заказ, J Фото, K В наличии, L Хит, M Описание
