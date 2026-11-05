@@ -81,6 +81,20 @@ function doPost(e) {
     }
     return json_({ ok: true });
   } catch (err) {
+    // Если таблица не записалась (например, заполнено хранилище Google) — заказ всё равно приходит вам в Telegram
+    try {
+      const b = JSON.parse(e.postData.contents), o = b.order;
+      if (b.action === 'order' && o && o.items && o.items.length) {
+        const c = o.customer || {}, tgu = c.tg || {};
+        const t = '⚠️ Заказ из мини-аппа (НЕ записан в таблицу: ' + String(err).slice(0, 120) + ')\n\n' +
+          (c.name || '') + ' · ' + (c.contact || '') + (tgu.user ? ' · @' + tgu.user : '') + '\n' +
+          (c.city ? 'Город/ТК: ' + c.city + '\n' : '') + (c.note ? 'Комментарий: ' + c.note + '\n' : '') + '\n' +
+          o.items.map(i => i.id + ' · ' + i.name + ' × ' + i.qty + ' = ' + round_(i.price * i.qty) + (i.cur === 'RUB' ? ' ₽' : ' $')).join('\n') +
+          '\n\nШтук: ' + o.qty + '\nИтого: ' + round_(o.total) + ' $';
+        sendTg_(prop_('ADMIN_CHAT_ID'), t);
+        return json_({ ok: true, warn: 'sheet' });
+      }
+    } catch (e2) {}
     return json_({ ok: false, error: String(err) });
   }
 }
@@ -577,7 +591,7 @@ function me_(body) {
       const r = clientFind_(refArg);
       if (r && canInvite_(r.v)) c.v[3] = String(r.v[0]);
     }
-    clientSave_(c);
+    try { clientSave_(c); SpreadsheetApp.flush(); } catch (e) { Logger.log('me_: не удалось записать (хранилище Google заполнено?): ' + e); }
     const ref = c.v[3] ? clientFind_(c.v[3]) : null;
     return {
       ok: true, id: String(u.id),
