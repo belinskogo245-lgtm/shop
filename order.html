@@ -4,15 +4,23 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Заказ aromaopt</title>
-<script>/* Telegram SDK грузим только внутри Telegram. Данные входа (tgWebAppData) запоминаем на всю сессию:
-   при переходах между страницами мини-аппа Telegram их не передаёт заново, и без них пропадал профиль и «Заказы» */
+<script>/* Telegram: страница НЕ ждёт telegram.org (из России без VPN он часто висит — мини-апп показывал пустой экран).
+   Сообщаем Telegram «готово» сами, данные входа берём из адреса, а SDK подгружаем в фоне. */
 (function(){var ss; try{ss=sessionStorage;}catch(e){}
  try{ if(ss && /tgWebAppData/.test(location.hash)) ss.setItem("tgHash",location.hash); }catch(e){}
  var saved=""; try{ saved=ss?ss.getItem("tgHash")||"":""; }catch(e){}
  var inTg=/tgWebApp/.test(location.hash+location.search)||!!window.TelegramWebviewProxy||!!saved;
- if(!inTg) return;
+ window.__inTg=inTg; if(!inTg) return;
  try{ if(saved && !/tgWebAppData/.test(location.hash)) history.replaceState(history.state,"",location.pathname+location.search+saved); }catch(e){}
- document.write('<script src="https://telegram.org/js/telegram-web-app.js"><\/script>');})();</script>
+ window.tgPost=function(t,d){ var s=JSON.stringify(d||{}); try{
+   if(window.TelegramWebviewProxy) window.TelegramWebviewProxy.postEvent(t,s);
+   else if(window.external&&"notify" in window.external) window.external.notify(JSON.stringify({eventType:t,eventData:d||{}}));
+   else window.parent.postMessage(JSON.stringify({eventType:t,eventData:d||{}}),"*"); }catch(e){} };
+ window.tgPost("web_app_ready"); window.tgPost("web_app_expand");
+ function sdk(){ var sc=document.createElement("script"); sc.src="https://telegram.org/js/telegram-web-app.js"; sc.async=true;
+   sc.onload=function(){ window.__onTg&&window.__onTg(); }; (document.head||document.documentElement).appendChild(sc); }
+ if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",function(){setTimeout(sdk,0)}); else sdk();
+})();</script>
 <style>
 :root{
   --bg:#efeff4; --card:#ffffff; --fg:#111114; --muted:#7a7a85; --line:#dcdce3;
@@ -59,8 +67,9 @@ h1{font-size:24px;margin:4px 0 2px}
 /* Страница заказа: ссылка order.html?o=... приходит в Telegram кнопкой «Открыть заказ».
    В ссылке зашиты позиции (артикул, кол-во, цена) и данные клиента; фото и названия берутся из каталога. */
 const API_URL = "https://script.google.com/macros/s/AKfycbysDIVdkJbYzcfpMO5a8AwE7MOqRdKMN803f0lgjVwKPvRE-rcHGzESyYckJ2-pvYXnhg/exec";
-const tg = window.Telegram && window.Telegram.WebApp;
+let tg = (window.Telegram && window.Telegram.WebApp) || null;
 if (tg) { try { tg.ready(); tg.expand(); } catch(e){} }
+window.__onTg = ()=>{ tg = (window.Telegram && window.Telegram.WebApp) || tg; if(tg){ try{ tg.ready(); tg.expand(); }catch(e){} } };
 /* Данные входа Telegram: из SDK, а если он не загрузился (telegram.org медленный/заблокирован) — прямо из адреса */
 const TG_DATA = (tg&&tg.initData) || (()=>{ try{ return new URLSearchParams(location.hash.slice(1)).get("tgWebAppData")||""; }catch(e){ return ""; } })();
 const TG_USER = (tg&&tg.initDataUnsafe&&tg.initDataUnsafe.user) || (()=>{ try{ return JSON.parse(new URLSearchParams(TG_DATA).get("user")||"null"); }catch(e){ return null; } })();
@@ -75,7 +84,7 @@ function decode(s){
   return JSON.parse(new TextDecoder().decode(bytes));
 }
 function getOrder(){
-  const p=new URLSearchParams(location.search), raw=p.get("o") || (tg&&tg.initDataUnsafe&&tg.initDataUnsafe.start_param) || "";
+  const p=new URLSearchParams(location.search), raw=p.get("o") || (tg&&tg.initDataUnsafe&&tg.initDataUnsafe.start_param) || new URLSearchParams(TG_DATA).get("start_param") || "";
   try{ return raw?decode(raw):null; }catch(e){ return null; }
 }
 function catFrom(rows){
