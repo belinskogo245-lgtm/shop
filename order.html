@@ -16,7 +16,8 @@
    if(window.TelegramWebviewProxy) window.TelegramWebviewProxy.postEvent(t,s);
    else if(window.external&&"notify" in window.external) window.external.notify(JSON.stringify({eventType:t,eventData:d||{}}));
    else window.parent.postMessage(JSON.stringify({eventType:t,eventData:d||{}}),"*"); }catch(e){} };
- window.tgPost("web_app_ready"); window.tgPost("web_app_expand");
+ function rdy(){ window.tgPost("web_app_ready"); window.tgPost("web_app_expand"); }
+ rdy(); document.addEventListener("DOMContentLoaded",rdy); window.addEventListener("load",rdy); setTimeout(rdy,1500); setTimeout(rdy,4000);
  function sdk(){ var sc=document.createElement("script"); sc.src="https://telegram.org/js/telegram-web-app.js"; sc.async=true;
    sc.onload=function(){ window.__onTg&&window.__onTg(); }; (document.head||document.documentElement).appendChild(sc); }
  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",function(){setTimeout(sdk,0)}); else sdk();
