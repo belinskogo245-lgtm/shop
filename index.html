@@ -12,8 +12,15 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#15120f">
 
-<script>/* Telegram SDK грузим только внутри Telegram, чтобы в браузере без VPN ничего не тормозило */
-if (/tgWebApp/.test(location.hash + location.search)) document.write('<script src="https://telegram.org/js/telegram-web-app.js"><\/script>');</script>
+<script>/* Telegram SDK грузим только внутри Telegram. Данные входа (tgWebAppData) запоминаем на всю сессию:
+   при переходах между страницами мини-аппа Telegram их не передаёт заново, и без них пропадал профиль и «Заказы» */
+(function(){var ss; try{ss=sessionStorage;}catch(e){}
+ try{ if(ss && /tgWebAppData/.test(location.hash)) ss.setItem("tgHash",location.hash); }catch(e){}
+ var saved=""; try{ saved=ss?ss.getItem("tgHash")||"":""; }catch(e){}
+ var inTg=/tgWebApp/.test(location.hash+location.search)||!!window.TelegramWebviewProxy||!!saved;
+ if(!inTg) return;
+ try{ if(saved && !/tgWebAppData/.test(location.hash)) history.replaceState(history.state,"",location.pathname+location.search+saved); }catch(e){}
+ document.write('<script src="https://telegram.org/js/telegram-web-app.js"><\/script>');})();</script>
 <style>
 /* Layout: Telegram mini-app — баннер с «Каналом», поиск, вкладки категорий, сетка 3 в ряд, плавающее нижнее меню */
 :root{
@@ -271,6 +278,9 @@ const DEMO = /*__DATA__*/[];
 
 const tg = window.Telegram && window.Telegram.WebApp;
 if (tg) { try { tg.ready(); tg.expand(); } catch(e){} }
+/* Данные входа Telegram: из SDK, а если он не загрузился (telegram.org медленный/заблокирован) — прямо из адреса */
+const TG_DATA = (tg&&tg.initData) || (()=>{ try{ return new URLSearchParams(location.hash.slice(1)).get("tgWebAppData")||""; }catch(e){ return ""; } })();
+const TG_USER = (tg&&tg.initDataUnsafe&&tg.initDataUnsafe.user) || (()=>{ try{ return JSON.parse(new URLSearchParams(TG_DATA).get("user")||"null"); }catch(e){ return null; } })();
 /* Партнёрка: ссылка друга вида ?startapp=r_<TG ID> — запоминаем, кто пригласил */
 const START = (tg&&tg.initDataUnsafe&&tg.initDataUnsafe.start_param) || new URLSearchParams(location.search).get("tgWebAppStartParam") || "";
 try{ if(/^r_\d+$/.test(START) && !localStorage.getItem("ref")) localStorage.setItem("ref",JSON.stringify(START.slice(2))); }catch(e){}
@@ -318,10 +328,10 @@ const rub = n=>Math.round(n).toLocaleString("ru-RU")+" ₽";
 const rubOf = usd=>Math.round(usd*S.rate/10)*10;
 const rubTxt = usd=>S.rate?"≈ "+rubOf(usd).toLocaleString("ru-RU")+" ₽":"";
 const rateNote = ()=>S.rate?`<p class="foot">Курс ${S.rate} ₽/$${S.rateDate?" от "+esc(S.rateDate):""}. Цена в рублях ориентировочная, курс подтверждается при оформлении заказа.</p>`:"";
-async function api(body){ const r=await fetch(CONFIG.API_URL,{method:"POST",body:JSON.stringify(Object.assign({initData:tg?tg.initData:""},body))}); return r.json(); }
+async function api(body){ const r=await fetch(CONFIG.API_URL,{method:"POST",body:JSON.stringify(Object.assign({initData:TG_DATA},body))}); return r.json(); }
 async function loadMe(){
-  if(!CONFIG.API_URL||!tg||!tg.initData) return;
-  try{ const j=await api({action:"me",ref:store.get("ref","")}); if(j.ok){ S.me=j; render(); } }catch(e){}
+  if(!CONFIG.API_URL||!TG_DATA) return;
+  for(let k=0;k<3&&!S.me;k++){ try{ const j=await api({action:"me",ref:store.get("ref","")}); if(j.ok){ S.me=j; render(); } else if(j.error==="auth") break; }catch(e){} if(!S.me) await new Promise(r=>setTimeout(r,1500*(k+1))); }
 }
 const giftItems = ()=>ITEMS.filter(it=>isPromo(it)&&it.stock);
 /* Сколько подарков положено в этом заказе: новому клиенту (от 120 $) + накопленные за друзей */
@@ -682,7 +692,7 @@ function viewInfo(){
   </div></div>`;
 }
 function tgUser(){
-  const u = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+  const u = TG_USER;
   return u?{name:[u.first_name,u.last_name].filter(Boolean).join(" "),user:u.username||"",id:u.id}:{name:"",user:"",id:""};
 }
 function inviteLink(){ return S.me?BOT_APP+"r_"+S.me.id:""; }
@@ -830,7 +840,7 @@ async function submitOrder(e){
   btn.disabled=true; btn.textContent="Отправляем…";
   if(!CONFIG.API_URL){ btn.disabled=false; btn.textContent="Оформить заказ на "+sumTxt(c); toast("Демо-режим: заказ не отправлен, подключим бота следующим шагом"); return; }
   try{
-    const r=await fetch(CONFIG.API_URL,{method:"POST",body:JSON.stringify({action:"order",order,initData:tg?tg.initData:""})});
+    const r=await fetch(CONFIG.API_URL,{method:"POST",body:JSON.stringify({action:"order",order,initData:TG_DATA})});
     const j=await r.json(); if(!j.ok) throw new Error(j.error||"Ошибка");
     S.orders.push({date:order.date,qty:c.qty,total:c.total,sum:sumTxt(c),status:"принят, ждёт подтверждения"}); store.set("orders",S.orders);
     S.cart={}; store.set("cart",S.cart); S.gp={}; store.set("gp",S.gp); S.useBonus=false; S.view="profile"; render(); toast(lamp?"Заказ отправлен. Пришлём реквизиты — оплатите до сборки, и лампа ваша":"Заказ отправлен. Мы свяжемся с вами в Telegram"); loadMe();

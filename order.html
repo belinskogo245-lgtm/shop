@@ -4,8 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Заказ aromaopt</title>
-<script>/* Telegram SDK грузим только внутри Telegram, чтобы в браузере без VPN ничего не тормозило */
-if (/tgWebApp/.test(location.hash + location.search)) document.write('<script src="https://telegram.org/js/telegram-web-app.js"><\/script>');</script>
+<script>/* Telegram SDK грузим только внутри Telegram. Данные входа (tgWebAppData) запоминаем на всю сессию:
+   при переходах между страницами мини-аппа Telegram их не передаёт заново, и без них пропадал профиль и «Заказы» */
+(function(){var ss; try{ss=sessionStorage;}catch(e){}
+ try{ if(ss && /tgWebAppData/.test(location.hash)) ss.setItem("tgHash",location.hash); }catch(e){}
+ var saved=""; try{ saved=ss?ss.getItem("tgHash")||"":""; }catch(e){}
+ var inTg=/tgWebApp/.test(location.hash+location.search)||!!window.TelegramWebviewProxy||!!saved;
+ if(!inTg) return;
+ try{ if(saved && !/tgWebAppData/.test(location.hash)) history.replaceState(history.state,"",location.pathname+location.search+saved); }catch(e){}
+ document.write('<script src="https://telegram.org/js/telegram-web-app.js"><\/script>');})();</script>
 <style>
 :root{
   --bg:#efeff4; --card:#ffffff; --fg:#111114; --muted:#7a7a85; --line:#dcdce3;
@@ -54,6 +61,9 @@ h1{font-size:24px;margin:4px 0 2px}
 const API_URL = "https://script.google.com/macros/s/AKfycbysDIVdkJbYzcfpMO5a8AwE7MOqRdKMN803f0lgjVwKPvRE-rcHGzESyYckJ2-pvYXnhg/exec";
 const tg = window.Telegram && window.Telegram.WebApp;
 if (tg) { try { tg.ready(); tg.expand(); } catch(e){} }
+/* Данные входа Telegram: из SDK, а если он не загрузился (telegram.org медленный/заблокирован) — прямо из адреса */
+const TG_DATA = (tg&&tg.initData) || (()=>{ try{ return new URLSearchParams(location.hash.slice(1)).get("tgWebAppData")||""; }catch(e){ return ""; } })();
+const TG_USER = (tg&&tg.initDataUnsafe&&tg.initDataUnsafe.user) || (()=>{ try{ return JSON.parse(new URLSearchParams(TG_DATA).get("user")||"null"); }catch(e){ return null; } })();
 const $ = s=>document.querySelector(s);
 const esc = s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const money = n=>(Math.round(n*100)/100).toLocaleString("ru-RU",{maximumFractionDigits:2})+" $";
