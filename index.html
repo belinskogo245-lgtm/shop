@@ -338,7 +338,16 @@ const rub = n=>Math.round(n).toLocaleString("ru-RU")+" ₽";
 const rubOf = usd=>Math.round(usd*S.rate/10)*10;
 const rubTxt = usd=>S.rate?"≈ "+rubOf(usd).toLocaleString("ru-RU")+" ₽":"";
 const rateNote = ()=>S.rate?`<p class="foot">Курс ${S.rate} ₽/$${S.rateDate?" от "+esc(S.rateDate):""}. Цена в рублях ориентировочная, курс подтверждается при оформлении заказа.</p>`:"";
-async function api(body){ const r=await fetch(CONFIG.API_URL,{method:"POST",body:JSON.stringify(Object.assign({initData:TG_DATA},body))}); return r.json(); }
+async function apiPost(body){ const r=await fetch(CONFIG.API_URL,{method:"POST",body:JSON.stringify(Object.assign({initData:TG_DATA},body))}); return r.json(); }
+/* Профиль/«Заказы»/«Партнёры» сначала через GET (как каталог — он доходит всегда), если сервер ещё не умеет — через POST */
+async function api(body){
+  if(["me","orders","partners"].includes(body.action)){
+    try{ const q=new URLSearchParams({action:body.action,initData:TG_DATA,ref:body.ref||"",t:Date.now()});
+      const j=await (await fetch(CONFIG.API_URL+"?"+q,{cache:"no-store"})).json();
+      if(j && !j.items) return j; }catch(e){}
+  }
+  return apiPost(body);
+}
 async function loadMe(){
   if(!CONFIG.API_URL) return;
   if(!TG_DATA){ S.meErr="T0"+(tg?"s":"")+(window.TelegramWebviewProxy?"p":""); render(); return; }
