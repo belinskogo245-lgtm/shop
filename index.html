@@ -324,7 +324,7 @@ async function load(){
     }catch(e){ ITEMS = norm(store.get("catalog",DEMO)); toast(ITEMS.length?"Нет связи, показан сохранённый каталог":"Не удалось загрузить каталог. Проверьте интернет"); }
   } else ITEMS = norm(DEMO);
   CATS = ["Главная", ...new Set(ITEMS.map(x=>x.cat))];
-  const top=[...CONFIG.NARCO.map(n=>n.cat),CONFIG.SALE.cat].filter(c=>CATS.includes(c));
+  const top=["АД","Евро",...CONFIG.NARCO.map(n=>n.cat),CONFIG.SALE.cat].filter(c=>CATS.includes(c));
   CATS = ["Главная", ...top, ...CATS.filter(c=>c!=="Главная"&&!top.includes(c))];
   render();
   loadMe();
