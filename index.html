@@ -309,8 +309,10 @@ const inStock = v=>{ if(typeof v==="boolean") return v; const t=String(v??"").tr
 function norm(rows){
   return rows.map(r=>{ const imgs=String(r[6]||"").split(/[,\s]+/).filter(u=>/^https?:/.test(u));
     return {id:r[0],cat:r[1],name:r[2],vol:r[3]||"",price:+r[4],stock:inStock(r[5]),img:imgs[0]||"",imgs,desc:String(r[7]||"").trim()}; })
-    .filter(x=>x.name && x.price>0);
+    .filter(x=>x.name && x.price>0 && !HIDE_CATS.includes(x.cat));
 }
+/* скрытые вкладки: товары остаются в таблице, но в мини-аппе не показываются */
+const HIDE_CATS = ["Оригинальный парфюм AD"];
 async function load(){
   if (CONFIG.API_URL){
     try{
